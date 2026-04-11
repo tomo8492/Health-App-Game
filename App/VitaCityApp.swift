@@ -6,6 +6,7 @@
 
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 @main
 struct VitaCityApp: App {
@@ -50,7 +51,9 @@ struct VitaCityApp: App {
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self)  private var appState
-    @State private var selectedTab: AppTab = .home
+    @State private var selectedTab:       AppTab = .home
+    @State private var achievementEngine  = AchievementEngine()
+    @State private var pendingAchievement: Achievement? = nil
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -75,22 +78,29 @@ struct RootView: View {
             .tabItem { Label("統計", systemImage: "chart.bar.fill") }
             .tag(AppTab.statistics)
 
-            // 街管理（ホームと同じ街ビュー - 建物一覧）
+            // 街管理
             NavigationStack {
                 CityManagementView()
             }
             .tabItem { Label("街管理", systemImage: "building.2.fill") }
             .tag(AppTab.city)
 
-            // 実績（Phase 4 実装）
+            // 実績 SCR（Phase 4）
             NavigationStack {
-                AchievementsPlaceholderView()
+                AchievementsView()
             }
-            .tabItem { Label("実績", systemImage: "trophy.fill") }
+            .tabItem {
+                Label("実績", systemImage: "trophy.fill")
+            }
             .tag(AppTab.achievements)
+            .environment(achievementEngine)
         }
         .tint(Color.vcCP)
+        .achievementBanner($pendingAchievement)
         .task { await setupApp() }
+        .onChange(of: appState.todayTotalCP) { _, _ in
+            Task { await checkAchievements() }
+        }
     }
 
     // MARK: - DI
@@ -106,19 +116,50 @@ struct RootView: View {
     // MARK: - App 起動時の処理
 
     private func setupApp() async {
-        // HealthKit 認可
         let hkService = HealthKitService()
         if hkService.isAvailable {
             try? await hkService.requestAuthorization()
             appState.isHealthKitAuthorized = true
         }
-        // 今日の歩数取得
         let steps = (try? await hkService.fetchTodaySteps()) ?? 0
         appState.todaySteps = steps
-        // HealthKit バックグラウンド監視
         hkService.startStepCountObserver { steps in
             appState.todaySteps = steps
         }
+        await checkAchievements()
+    }
+
+    // MARK: - 実績チェック + ウィジェット更新
+
+    private func checkAchievements() async {
+        let repo = makeDailyRecordRepository()
+        guard let allRecords = try? await repo.recentRecords(limit: 365) else { return }
+        let streak = (try? await repo.currentStreak()) ?? 0
+
+        achievementEngine.checkAchievements(
+            totalCP:     appState.todayTotalCP,
+            streak:      streak,
+            npcCount:    0,     // CitySceneCoordinator から取得（Phase 2 連携）
+            todayRecord: appState.todayRecord,
+            allRecords:  allRecords
+        )
+        // バナー表示
+        if let unlocked = achievementEngine.recentlyUnlocked {
+            pendingAchievement = unlocked
+            achievementEngine.recentlyUnlocked = nil
+        }
+        // ウィジェット更新
+        let record = appState.todayRecord
+        WidgetDataStore.save(
+            totalCP:     record?.totalCP     ?? 0,
+            exerciseCP:  record?.exerciseCP  ?? 0,
+            dietCP:      record?.dietCP      ?? 0,
+            alcoholCP:   record?.alcoholCP   ?? 0,
+            sleepCP:     record?.sleepCP     ?? 0,
+            lifestyleCP: record?.lifestyleCP ?? 0,
+            streak:      streak,
+            isPremium:   appState.isPremium
+        )
     }
 }
 
@@ -128,11 +169,3 @@ enum AppTab: Hashable {
     case home, record, statistics, city, achievements
 }
 
-// MARK: - Placeholder Views (Phase 4+ で実装予定)
-
-struct AchievementsPlaceholderView: View {
-    var body: some View {
-        ContentUnavailableView("実績 (Phase 4)", systemImage: "trophy.fill",
-            description: Text("実績・バッジシステムは Phase 4 で実装予定"))
-    }
-}
