@@ -17,57 +17,108 @@ final class CitySceneCoordinator {
 
     // MARK: - ゲーム状態（SwiftUI が読み取る）
 
-    var totalCP:        Int    = 0
-    var mapSize:        MapSize = .small   // 20×20
-    var currentWeather: WeatherType = .sunny
-    var selectedBuilding: BuildingInfo? = nil    // 建物タップで SwiftUI シートを表示
-    var npcCount:       Int    = 0
-    var isPremium:      Bool   = false
-    var cityLevel:      Int    = 1         // 市庁舎レベル
+    var totalCP:           Int         = 0
+    var mapSize:           MapSize     = .small
+    var currentWeather:    WeatherType = .sunny
+    var selectedBuilding:  BuildingInfo? = nil
+    var npcCount:          Int         = 0
+    var isPremium:         Bool        = false
+    var cityLevel:         Int         = 1
+
+    // MARK: - 建物レジストリ
+
+    private(set) var registry = BuildingRegistry()
 
     // MARK: - SpriteKit シーン参照（弱参照）
 
     weak var scene: CityScene?
 
-    // MARK: - SwiftUI → SpriteKit イベント（CLAUDE.md Key Rule 9）
+    // MARK: - 絶対値同期（起動時・記録保存後）
 
-    /// 健康記録後に CP を加算しゲームを更新する
-    /// - Parameters:
-    ///   - axis:   更新する軸
-    ///   - amount: 追加 CP 量
-    func addCP(axis: CPAxis, amount: Int) {
-        // 軸別 CP を totalCP に加算（飲酒も中央広場へ: CLAUDE.md Key Rule 2）
-        totalCP = min(totalCP + amount, 999_999)
-        scene?.onCPAdded(axis: axis, amount: amount)
+    /// AppState.todayTotalCP が変化したときに呼ぶ（デルタではなく絶対値）
+    func syncTotalCP(_ newCP: Int) {
+        guard newCP != totalCP else { return }
+        let delta = newCP - totalCP
+        totalCP   = min(newCP, 999_999)
+
+        if delta > 0 {
+            // 新しく解放された建物をシーンに追加
+            let unlocked = registry.checkUnlocks(totalCP: totalCP)
+            unlocked.forEach { entry in
+                if let b = registry.placed.first(where: { $0.id == entry.id }) {
+                    scene?.addBuilding(id: b.id, name: b.name, axis: entry.axis,
+                                       gridX: b.gridX, gridY: b.gridY, level: b.level)
+                    scene?.onCPAdded(axis: entry.axis, amount: delta)
+                }
+            }
+            // 既存建物に XP を配布
+            distributeXP(delta)
+        }
+
         updateWeather()
         updateNPCCount()
         checkMapExpansion()
+        updateCityLevel()
     }
 
-    /// 歩数更新（HealthKit バックグラウンド）
+    // MARK: - デルタ加算（記録ボタン押下時）
+
+    func addCP(axis: CPAxis, amount: Int) {
+        syncTotalCP(totalCP + amount)
+    }
+
+    // MARK: - XP 配布（同軸建物に）
+
+    private func distributeXP(_ delta: Int) {
+        for building in registry.placed {
+            let leveledUp = registry.addXP(to: building.id, amount: delta / 10 + 1)
+            if leveledUp {
+                scene?.onBuildingLevelUp(buildingId: building.id,
+                                          newLevel: registry.placed.first(where: { $0.id == building.id })?.level ?? 1)
+            }
+        }
+    }
+
+    // MARK: - 歩数更新（HealthKit バックグラウンド）
+
     func updateStepCount(_ steps: Int) {
-        scene?.updateNPCCount(Int(Double(steps) / 10_000.0 * 10) + 1)
         npcCount = min(steps / 1000, 20)
+        scene?.updateNPCCount(npcCount, totalCP: totalCP)
     }
 
-    /// 時刻変化（毎時）
+    // MARK: - 時刻変化
+
     func updateTimeOfDay(_ hour: Int) {
         scene?.updateTimeOfDay(hour)
     }
 
-    /// プレミアム解放（StoreKit2 検証後: CLAUDE.md Key Rule 3）
+    // MARK: - プレミアム解放（StoreKit2 検証後: CLAUDE.md Key Rule 3）
+
     func unlockPremium() {
         isPremium = true
         scene?.applyPremiumTheme()
     }
 
-    // MARK: - 天気更新（CLAUDE.md Key Rule 2: CP→天気）
+    // MARK: - 天気更新（CP → 天気: CLAUDE.md Key Rule 2）
 
     private func updateWeather() {
-        // 当日 CP（0〜500）から天気を決定
-        let todayCP = min(totalCP % 500 == 0 ? 500 : totalCP % 500, 500)
-        currentWeather = weatherForCP(todayCP)
+        let todayCP   = min(totalCP, 500)
+        let newWeather = weatherForCP(todayCP)
+        guard newWeather != currentWeather else { return }
+        currentWeather = newWeather
         scene?.updateWeather(currentWeather)
+
+        // 嵐の場合: スラム建物を出現させる可能性
+        if currentWeather == .stormy && totalCP > 0 {
+            let penaltyRoll = Int.random(in: 0..<10)
+            if penaltyRoll == 0 {
+                registry.spawnSlamBuilding(id: "B030")
+                if let b = registry.placed.first(where: { $0.id == "B030" }) {
+                    scene?.addBuilding(id: "B030", name: "廃墟ビル", axis: .lifestyle,
+                                       gridX: b.gridX, gridY: b.gridY, level: 1)
+                }
+            }
+        }
     }
 
     private func weatherForCP(_ cp: Int) -> WeatherType {
@@ -83,8 +134,8 @@ final class CitySceneCoordinator {
     // MARK: - NPC 更新
 
     private func updateNPCCount() {
-        npcCount = min(totalCP / 100 + 1, 20)
-        scene?.updateNPCCount(npcCount)
+        npcCount = min(totalCP / 50 + 1, 20)
+        scene?.updateNPCCount(npcCount, totalCP: totalCP)
     }
 
     // MARK: - マップ拡張チェック（CLAUDE.md Key Rule 6）
@@ -92,34 +143,43 @@ final class CitySceneCoordinator {
     private func checkMapExpansion() {
         let newSize: MapSize
         switch totalCP {
-        case 30_000...: newSize = .extraLarge  // 50×50
-        case 15_000...: newSize = .large       // 40×40
-        case 5_000...:  newSize = .medium      // 30×30
-        default:        newSize = .small       // 20×20
+        case 30_000...: newSize = .extraLarge
+        case 15_000...: newSize = .large
+        case 5_000...:  newSize = .medium
+        default:        newSize = .small
         }
-        if newSize != mapSize {
-            mapSize = newSize
-            scene?.expandMap(to: newSize)
+        guard newSize != mapSize else { return }
+        mapSize = newSize
+        registry.mapSize = newSize.rawValue
+        scene?.expandMap(to: newSize)
+    }
+
+    // MARK: - 市レベル計算
+
+    private func updateCityLevel() {
+        cityLevel = switch totalCP {
+        case 50_000...: 10
+        case 30_000...: 9
+        case 20_000...: 8
+        case 15_000...: 7
+        case 10_000...: 6
+        case 5_000...:  5
+        case 3_000...:  4
+        case 1_500...:  3
+        case 500...:    2
+        default:        1
         }
     }
 }
 
 // MARK: - Supporting Types
 
-enum WeatherType: String, Sendable {
+enum WeatherType: String, Sendable, Equatable {
     case sunny        = "sunny"
     case partlyCloudy = "partlyCloudy"
     case cloudy       = "cloudy"
     case rainy        = "rainy"
     case stormy       = "stormy"
-
-    var particleFileName: String? {
-        switch self {
-        case .rainy:   return "rain.sks"
-        case .stormy:  return "storm.sks"
-        default:       return nil
-        }
-    }
 
     var backgroundBrightness: Double {
         switch self {
@@ -133,10 +193,10 @@ enum WeatherType: String, Sendable {
 }
 
 enum MapSize: Int, Comparable, Sendable {
-    case small      = 20   // 20×20
-    case medium     = 30   // 30×30
-    case large      = 40   // 40×40
-    case extraLarge = 50   // 50×50
+    case small      = 20
+    case medium     = 30
+    case large      = 40
+    case extraLarge = 50
 
     static func < (lhs: MapSize, rhs: MapSize) -> Bool { lhs.rawValue < rhs.rawValue }
 }

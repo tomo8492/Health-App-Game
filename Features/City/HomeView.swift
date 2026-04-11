@@ -126,20 +126,25 @@ struct HomeView: View {
                 .foregroundStyle(Color.vcSecondaryLabel)
                 .padding(.bottom, 6)
 
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 ForEach(CPAxis.allCases, id: \.self) { axis in
                     VStack(spacing: 3) {
                         Image(systemName: axis.icon)
                             .font(.caption)
                             .foregroundStyle(axis.color)
-                        Text("\(coordinator.totalCP > 0 ? (coordinator.totalCP / 5) : 0)")
+                        Text("\(axis.cp(from: appState.todayRecord))")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(axis.cp(from: appState.todayRecord) > 0
+                                             ? axis.color : Color.vcSecondaryLabel)
+                        Text(axis.shortName)
+                            .font(.system(size: 8))
+                            .foregroundStyle(Color.vcSecondaryLabel)
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
             .padding(.vertical, 10)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
     }
