@@ -12,6 +12,7 @@ struct HomeView: View {
     @Environment(AppState.self)            private var appState
     @Environment(CitySceneCoordinator.self) private var coordinator  // ★ RootView から環境経由
     @State private var showPremiumStore = false
+    @State private var cachedScene: CityScene? = nil
 
     var body: some View {
         ZStack {
@@ -60,9 +61,11 @@ struct HomeView: View {
     // MARK: - Make Scene
 
     private func makeScene(size: CGSize) -> CityScene {
-        let scene       = CityScene(size: size)
-        scene.scaleMode = .aspectFill
+        if let existing = cachedScene { return existing }
+        let scene         = CityScene(size: size)
+        scene.scaleMode   = .aspectFill
         scene.coordinator = coordinator
+        cachedScene       = scene
         return scene
     }
 

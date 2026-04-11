@@ -6,6 +6,7 @@
 // - SwiftData エンティティへのアクセスは Repository プロトコル経由のみ
 
 import Foundation
+import Observation
 import SpriteKit
 
 // MARK: - CitySceneCoordinator

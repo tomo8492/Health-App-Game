@@ -7,6 +7,7 @@
 // - ファミリー共有: 有効（StoreKit2 デフォルト）
 
 import Foundation
+import Observation
 import StoreKit
 
 // MARK: - PurchaseService

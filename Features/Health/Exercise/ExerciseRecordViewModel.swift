@@ -2,6 +2,7 @@
 // Features/Health/Exercise/
 
 import Foundation
+import Observation
 import VitaCityCore
 
 @Observable
