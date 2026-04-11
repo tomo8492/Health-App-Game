@@ -47,6 +47,20 @@ final class AppState {
     // MARK: - Init
 
     init() {}
+
+    // MARK: - 今日の記録をリフレッシュ（起動時・記録保存後に呼ぶ）
+
+    @MainActor
+    func refreshTodayRecord(using streakManager: StreakManager) async {
+        do {
+            let record = try await streakManager.todayRecord()
+            let streak = try await streakManager.currentStreak()
+            todayRecord  = record
+            todayStreak  = streak
+        } catch {
+            self.error = .dataLoadFailed(error.localizedDescription)
+        }
+    }
 }
 
 // MARK: - AppError

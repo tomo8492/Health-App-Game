@@ -40,6 +40,7 @@ final class CityScene: SKScene {
     // MARK: - ライフサイクル
 
     override func didMove(to view: SKView) {
+        coordinator?.scene = self   // コーディネーターにシーン参照を登録（CLAUDE.md Key Rule 9）
         setupLayers()
         setupCamera()
         setupMap()

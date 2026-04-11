@@ -51,7 +51,7 @@ final class NPCNode: SKNode {
     var gridX: Int
     var gridY: Int
     private var isMoving = false
-    private weak var parsedMap: ParsedMap?
+    private var parsedMap: ParsedMap?
     private let variant: NPCVariant
 
     // パーツノード

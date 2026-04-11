@@ -26,6 +26,11 @@ struct PlacedBuilding: Identifiable, Codable {
 
 final class BuildingRegistry {
 
+    // MARK: - 永続化キー
+
+    private static let placedKey   = "BuildingRegistry.placed"
+    private static let unlockedKey = "BuildingRegistry.unlocked"
+
     // MARK: - State
 
     private(set) var placed:    [PlacedBuilding] = []  // 配置済み
@@ -39,8 +44,35 @@ final class BuildingRegistry {
     // MARK: - 初期化
 
     init() {
-        // 市庁舎は最初から配置済み（CP 不要: CLAUDE.md B025）
-        placeBuilding(id: "B025", at: (x: 10, y: 10))
+        // 永続化データが存在すれば復元、なければ市庁舎を配置
+        if !loadFromUserDefaults() {
+            placeBuilding(id: "B025", at: (x: 10, y: 10))
+        }
+    }
+
+    // MARK: - UserDefaults 永続化
+
+    private func loadFromUserDefaults() -> Bool {
+        let decoder = JSONDecoder()
+        guard
+            let placedData   = UserDefaults.standard.data(forKey: Self.placedKey),
+            let savedPlaced  = try? decoder.decode([PlacedBuilding].self, from: placedData),
+            let savedUnlocked = UserDefaults.standard.stringArray(forKey: Self.unlockedKey)
+        else { return false }
+
+        placed   = savedPlaced
+        unlocked = savedUnlocked
+        // 占有セル再構築
+        occupiedCells = Set(placed.map { "\($0.gridX),\($0.gridY)" })
+        return true
+    }
+
+    func save() {
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(placed) {
+            UserDefaults.standard.set(data, forKey: Self.placedKey)
+        }
+        UserDefaults.standard.set(unlocked, forKey: Self.unlockedKey)
     }
 
     // MARK: - CP に応じた建物解放チェック
@@ -63,6 +95,7 @@ final class BuildingRegistry {
         // 過飲ペナルティ: 総 CP に対して飲酒軸 CP が極端に低いと B029/B030 が出現
         // → CityScene 側で alcoholCP を監視して呼び出す（ここでは解放のみ）
 
+        if !newlyUnlocked.isEmpty { save() }
         return newlyUnlocked
     }
 
@@ -82,6 +115,7 @@ final class BuildingRegistry {
         )
         placed.append(entry)
         occupiedCells.insert("\(pos.x),\(pos.y)")
+        save()
     }
 
     /// 建物に XP を加算してレベルアップ判定
@@ -93,6 +127,7 @@ final class BuildingRegistry {
         let newLevel = min((thresholds.lastIndex { $0 <= placed[idx].xp } ?? 0) + 1, 5)
         if newLevel > placed[idx].level {
             placed[idx].level = newLevel
+            save()
             return true  // レベルアップ
         }
         return false

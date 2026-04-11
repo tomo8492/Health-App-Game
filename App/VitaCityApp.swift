@@ -123,6 +123,9 @@ struct RootView: View {
         .onChange(of: appState.todayTotalCP) { _, _ in
             Task { await checkAchievements() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+            BuildingTextureGenerator.clearCache()
+        }
     }
 
     // MARK: - DI
@@ -138,6 +141,9 @@ struct RootView: View {
     // MARK: - App 起動時の処理
 
     private func setupApp() async {
+        // 今日の記録を AppState に反映（todayRecord が nil のまま CP が 0 になるのを防ぐ）
+        await appState.refreshTodayRecord(using: makeStreakManager())
+
         let hkService = HealthKitService()
         if hkService.isAvailable {
             try? await hkService.requestAuthorization()

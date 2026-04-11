@@ -16,6 +16,11 @@ enum BuildingTextureGenerator {
 
     private static var cache: [String: SKTexture] = [:]
 
+    /// メモリ警告時にキャッシュを全クリア
+    static func clearCache() {
+        cache.removeAll()
+    }
+
     /// 建物 ID・軸・レベルからテクスチャを生成（キャッシュ付き）
     static func texture(buildingId: String, axis: CPAxis, level: Int) -> SKTexture {
         let key = "\(buildingId)_lv\(level)"
