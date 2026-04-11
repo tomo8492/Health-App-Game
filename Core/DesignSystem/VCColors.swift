@@ -28,6 +28,9 @@ extension Color {
     static let vcCP        = Color(red: 1.00, green: 0.84, blue: 0.00)  // 金色 #FFD700
     static let vcCPGlow    = Color(red: 1.00, green: 0.70, blue: 0.00)  // 深みのある金
     static let vcPremium   = Color(red: 0.89, green: 0.62, blue: 0.00)  // プレミアム金
+
+    // カード背景（ライト/ダーク対応）
+    static let vcCardBackground = Color(.secondarySystemBackground)
 }
 
 // MARK: - Gradient
