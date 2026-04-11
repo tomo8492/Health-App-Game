@@ -51,9 +51,10 @@ struct VitaCityApp: App {
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self)  private var appState
-    @State private var selectedTab:       AppTab = .home
-    @State private var achievementEngine  = AchievementEngine()
+    @State private var selectedTab:        AppTab = .home
+    @State private var achievementEngine   = AchievementEngine()
     @State private var pendingAchievement: Achievement? = nil
+    @State private var showPremiumStore:   Bool = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -97,6 +98,10 @@ struct RootView: View {
         }
         .tint(Color.vcCP)
         .achievementBanner($pendingAchievement)
+        .sheet(isPresented: $showPremiumStore) {
+            PremiumStoreView()
+                .environment(appState)
+        }
         .task { await setupApp() }
         .onChange(of: appState.todayTotalCP) { _, _ in
             Task { await checkAchievements() }

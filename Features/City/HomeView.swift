@@ -12,6 +12,7 @@ struct HomeView: View {
     @Environment(AppState.self) private var appState
     @State private var coordinator = CitySceneCoordinator()
     @State private var showBuildingDetail = false
+    @State private var showPremiumStore = false
 
     var body: some View {
         ZStack {
@@ -43,6 +44,10 @@ struct HomeView: View {
         .navigationBarHidden(true)
         .sheet(item: $coordinator.selectedBuilding) { building in
             BuildingDetailSheet(building: building)
+        }
+        .sheet(isPresented: $showPremiumStore) {
+            PremiumStoreView()
+                .environment(appState)
         }
         .onChange(of: appState.todaySteps) { _, steps in
             coordinator.updateStepCount(steps)
@@ -78,6 +83,20 @@ struct HomeView: View {
             .background(.ultraThinMaterial, in: Capsule())
 
             Spacer()
+
+            // プレミアムボタン（未購入時のみ）
+            if !appState.isPremium {
+                Button {
+                    showPremiumStore = true
+                } label: {
+                    Image(systemName: "crown.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.vcCP)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+            }
 
             // CP 表示
             HStack(spacing: 4) {

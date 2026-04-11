@@ -36,6 +36,10 @@ final class AppState {
 
     var isPremium: Bool = false
 
+    /// プレミアム限定チェック（ウィジェット中/大サイズ、全期間統計など）
+    var canViewFullStatistics: Bool { isPremium }
+    var canUseWidgetMediumLarge: Bool { isPremium }
+
     // MARK: - エラー
 
     var error: AppError?
