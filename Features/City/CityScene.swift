@@ -37,10 +37,23 @@ final class CityScene: SKScene {
     private var lastPanPoint: CGPoint = .zero
     private var lastScale:    CGFloat = 1.0
 
+    /// didMove(to:) が複数回呼ばれても初回のみセットアップするフラグ
+    /// キャッシュ済みシーンが SpriteView に再プレゼントされるたびに
+    /// didMove(to:) が呼ばれる SpriteKit の仕様に対する防御
+    private var isSetupComplete = false
+
     // MARK: - ライフサイクル
 
     override func didMove(to view: SKView) {
         coordinator?.scene = self   // コーディネーターにシーン参照を登録（CLAUDE.md Key Rule 9）
+
+        // 二重セットアップ防止（同じシーンインスタンスが再プレゼントされた場合）
+        guard !isSetupComplete else {
+            setupGestures(in: view)   // ジェスチャーは View が変わるたびに再登録が必要
+            return
+        }
+        isSetupComplete = true
+
         setupLayers()
         setupCamera()
         setupMap()
