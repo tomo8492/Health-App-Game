@@ -7,6 +7,7 @@
 import SwiftUI
 import SwiftData
 import WidgetKit
+import VitaCityCore
 
 @main
 struct VitaCityApp: App {

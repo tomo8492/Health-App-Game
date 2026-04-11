@@ -13,6 +13,7 @@ struct HomeView: View {
     @State private var coordinator = CitySceneCoordinator()
     @State private var showBuildingDetail = false
     @State private var showPremiumStore = false
+    @State private var cachedScene: CityScene? = nil
 
     var body: some View {
         ZStack {
@@ -61,9 +62,11 @@ struct HomeView: View {
     // MARK: - Make Scene
 
     private func makeScene(size: CGSize) -> CityScene {
-        let scene       = CityScene(size: size)
-        scene.scaleMode = .aspectFill
+        if let existing = cachedScene { return existing }
+        let scene         = CityScene(size: size)
+        scene.scaleMode   = .aspectFill
         scene.coordinator = coordinator
+        cachedScene       = scene
         return scene
     }
 
