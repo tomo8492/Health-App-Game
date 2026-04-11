@@ -54,9 +54,9 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // ホーム（Phase 2 で街ビューに置き換え）
+            // ホーム SCR-001（SpriteKit 街ビュー）
             NavigationStack {
-                HomePlaceholderView()
+                HomeView()
             }
             .tabItem { Label("ホーム", systemImage: "house.fill") }
             .tag(AppTab.home)
@@ -68,16 +68,16 @@ struct RootView: View {
             .tabItem { Label("記録", systemImage: "pencil.and.list.clipboard") }
             .tag(AppTab.record)
 
-            // 統計（Phase 3 実装）
+            // 統計 SCR-003（Swift Charts）
             NavigationStack {
-                StatisticsPlaceholderView()
+                StatisticsView(repository: makeDailyRecordRepository())
             }
             .tabItem { Label("統計", systemImage: "chart.bar.fill") }
             .tag(AppTab.statistics)
 
-            // 街管理（Phase 2 実装）
+            // 街管理（ホームと同じ街ビュー - 建物一覧）
             NavigationStack {
-                CityPlaceholderView()
+                CityManagementView()
             }
             .tabItem { Label("街管理", systemImage: "building.2.fill") }
             .tag(AppTab.city)
@@ -97,6 +97,10 @@ struct RootView: View {
 
     private func makeStreakManager() -> StreakManager {
         StreakManager(repository: DailyRecordRepository(modelContext: modelContext))
+    }
+
+    private func makeDailyRecordRepository() -> DailyRecordRepository {
+        DailyRecordRepository(modelContext: modelContext)
     }
 
     // MARK: - App 起動時の処理
@@ -124,38 +128,7 @@ enum AppTab: Hashable {
     case home, record, statistics, city, achievements
 }
 
-// MARK: - Placeholder Views (各 Phase で実装予定)
-
-struct HomePlaceholderView: View {
-    @Environment(AppState.self) private var appState
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "building.2.crop.circle.fill")
-                .font(.system(size: 72))
-                .foregroundStyle(Color.vcCP)
-            Text("VITA CITY").font(.largeTitle.bold())
-            Text("Phase 2 で街ビューが表示されます")
-                .foregroundStyle(Color.vcSecondaryLabel)
-            Text("今日の歩数: \(appState.todaySteps)")
-                .font(.subheadline)
-        }
-        .navigationTitle("VITA CITY")
-    }
-}
-
-struct StatisticsPlaceholderView: View {
-    var body: some View {
-        ContentUnavailableView("統計 (Phase 3)", systemImage: "chart.bar.fill",
-            description: Text("Swift Charts による統計グラフは Phase 3 で実装予定"))
-    }
-}
-
-struct CityPlaceholderView: View {
-    var body: some View {
-        ContentUnavailableView("街管理 (Phase 2)", systemImage: "building.2.fill",
-            description: Text("SpriteKit による街ビューは Phase 2 で実装予定"))
-    }
-}
+// MARK: - Placeholder Views (Phase 4+ で実装予定)
 
 struct AchievementsPlaceholderView: View {
     var body: some View {
