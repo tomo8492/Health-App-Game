@@ -1,0 +1,6 @@
+app_identifier("com.vitacity.app")      # App Bundle ID
+apple_id("developer@example.com")       # Apple ID（要変更）
+team_id("XXXXXXXXXX")                   # Apple Developer Team ID（要変更）
+
+# App Store Connect API Key（CI 環境では環境変数経由）
+# ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_CONTENT を設定すること

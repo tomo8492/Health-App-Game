@@ -14,6 +14,8 @@ import Charts
 struct StatisticsView: View {
 
     @State private var viewModel: StatisticsViewModel
+    @Environment(AppState.self) private var appState
+    @State private var showPremiumStore = false
 
     init(repository: DailyRecordRepositoryProtocol) {
         _viewModel = State(initialValue: StatisticsViewModel(repository: repository))
@@ -25,6 +27,12 @@ struct StatisticsView: View {
                 periodPicker
                     .padding(.horizontal)
 
+                // プレミアム未購入で月選択時はバナー表示（CLAUDE.md Key Rule 8）
+                if viewModel.selectedPeriod == .month && !appState.isPremium {
+                    premiumGateBanner
+                        .padding(.horizontal)
+                }
+
                 summaryCards
                     .padding(.horizontal)
 
@@ -34,8 +42,15 @@ struct StatisticsView: View {
                 axisAveragesCard
                     .padding(.horizontal)
 
+                // ヒートマップはプレミアムのみ全期間（無料: 7日のみ表示）
                 calendarHeatmapCard
                     .padding(.horizontal)
+                    .overlay(alignment: .bottom) {
+                        if !appState.isPremium {
+                            premiumHeatmapOverlay
+                        }
+                    }
+                    .clipped()
             }
             .padding(.vertical)
         }
@@ -49,8 +64,68 @@ struct StatisticsView: View {
                     .background(.ultraThinMaterial)
             }
         }
+        .sheet(isPresented: $showPremiumStore) {
+            PremiumStoreView().environment(appState)
+        }
         .task { await viewModel.load() }
         .refreshable { await viewModel.load() }
+        // 無料版は週表示のみ（月選択を阻止はしないが制限バナーを表示）
+        .onChange(of: viewModel.selectedPeriod) { _, period in
+            if period == .month && !appState.isPremium {
+                viewModel.selectedPeriod = .week  // 自動で週に戻す
+                showPremiumStore = true
+            }
+        }
+    }
+
+    // MARK: - プレミアムゲートバナー
+
+    private var premiumGateBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "crown.fill")
+                .foregroundStyle(Color.vcCP)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("月次統計はプレミアム限定")
+                    .font(.subheadline.weight(.semibold))
+                Text("30日以上の統計閲覧にはプレミアムが必要です")
+                    .font(.caption)
+                    .foregroundStyle(Color.vcSecondaryLabel)
+            }
+            Spacer()
+            Button("解放") { showPremiumStore = true }
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.vcCP, in: Capsule())
+        }
+        .padding()
+        .background(Color.vcCP.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.vcCP.opacity(0.3), lineWidth: 1))
+    }
+
+    // MARK: - ヒートマップ下部プレミアムオーバーレイ
+
+    private var premiumHeatmapOverlay: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            LinearGradient(
+                colors: [.clear, Color(.systemBackground)],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: 60)
+            Button {
+                showPremiumStore = true
+            } label: {
+                Label("90日全期間を見る（プレミアム）", systemImage: "crown.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.vcCP, in: Capsule())
+            }
+            .padding(.bottom, 12)
+        }
     }
 
     // MARK: - Period Picker

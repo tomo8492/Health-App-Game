@@ -9,9 +9,8 @@ import SpriteKit
 
 struct HomeView: View {
 
-    @Environment(AppState.self) private var appState
-    @State private var coordinator = CitySceneCoordinator()
-    @State private var showBuildingDetail = false
+    @Environment(AppState.self)            private var appState
+    @Environment(CitySceneCoordinator.self) private var coordinator  // ★ RootView から環境経由
     @State private var showPremiumStore = false
 
     var body: some View {

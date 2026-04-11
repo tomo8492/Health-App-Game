@@ -1,0 +1,128 @@
+# Fastfile
+# VITA CITY - Fastlane CI/CD 設定（Phase 5）
+#
+# 使用方法:
+#   bundle exec fastlane beta    → TestFlight にアップロード
+#   bundle exec fastlane release → App Store 申請
+#   bundle exec fastlane tests   → ユニットテスト実行
+
+default_platform(:ios)
+
+# ─── 共通定数 ───────────────────────────────────────────
+SCHEME         = "VitaCity"
+WORKSPACE      = "VitaCity.xcworkspace"
+BUNDLE_ID      = "com.vitacity.app"
+WIDGET_ID      = "com.vitacity.app.widget"
+APP_STORE_CONNECT_API_KEY_PATH = "AuthKey.p8"  # CI では環境変数 ASC_KEY_CONTENT から生成
+
+platform :ios do
+
+  # ─── テスト ─────────────────────────────────────────────
+  desc "ユニットテスト・UIテストを実行"
+  lane :tests do
+    # Swift Package テスト（CPPointCalculator など）
+    sh("swift test --package-path .. --parallel")
+
+    # Xcode テスト
+    run_tests(
+      workspace:   WORKSPACE,
+      scheme:      SCHEME,
+      devices:     ["iPhone 16"],
+      clean:       true,
+      output_files: "test_output/report.html"
+    )
+  end
+
+  # ─── TestFlight ──────────────────────────────────────────
+  desc "TestFlight にビルドをアップロード（ベータ配信）"
+  lane :beta do
+    # App Store Connect API 認証
+    api_key = app_store_connect_api_key(
+      key_id:        ENV["ASC_KEY_ID"],
+      issuer_id:     ENV["ASC_ISSUER_ID"],
+      key_content:   ENV["ASC_KEY_CONTENT"],
+      is_key_content_base64: true
+    )
+
+    # 証明書・プロビジョニング同期（match で管理）
+    sync_code_signing(
+      type:         "appstore",
+      app_identifier: [BUNDLE_ID, WIDGET_ID],
+      readonly:     is_ci
+    )
+
+    # ビルド番号を自動インクリメント
+    increment_build_number(
+      build_number: latest_testflight_build_number(api_key: api_key) + 1
+    )
+
+    # ビルド
+    build_ios_app(
+      workspace:    WORKSPACE,
+      scheme:       SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      include_bitcode: false
+    )
+
+    # TestFlight アップロード
+    upload_to_testflight(
+      api_key:             api_key,
+      skip_waiting_for_build_processing: true,
+      changelog:           changelog_from_git_commits(merge_commit_filtering: "exclude_merges")
+    )
+
+    # Slack 通知（オプション）
+    # slack(message: "TestFlight アップロード完了 🚀", channel: "#vitacity")
+  end
+
+  # ─── App Store リリース ──────────────────────────────────
+  desc "App Store に申請"
+  lane :release do
+    api_key = app_store_connect_api_key(
+      key_id:        ENV["ASC_KEY_ID"],
+      issuer_id:     ENV["ASC_ISSUER_ID"],
+      key_content:   ENV["ASC_KEY_CONTENT"],
+      is_key_content_base64: true
+    )
+
+    sync_code_signing(
+      type:          "appstore",
+      app_identifier: [BUNDLE_ID, WIDGET_ID],
+      readonly:      true
+    )
+
+    build_ios_app(
+      workspace:     WORKSPACE,
+      scheme:        SCHEME,
+      configuration: "Release",
+      export_method: "app-store"
+    )
+
+    upload_to_app_store(
+      api_key:              api_key,
+      submit_for_review:    false,   # 手動で申請確認後に true に変更
+      automatic_release:    false,
+      force:                true,    # スクリーンショットの上書き
+      metadata_path:        "./fastlane/metadata",
+      screenshots_path:     "./fastlane/screenshots"
+    )
+  end
+
+  # ─── SwiftLint ──────────────────────────────────────────
+  desc "SwiftLint で静的解析"
+  lane :lint do
+    swiftlint(
+      mode:          :lint,
+      output_file:   "swiftlint.result.json",
+      reporter:      "json",
+      ignore_exit_status: false
+    )
+  end
+
+  # ─── エラーハンドリング ──────────────────────────────────
+  error do |lane, exception|
+    puts "Lane #{lane} failed: #{exception.message}"
+    # slack(message: "❌ #{lane} 失敗: #{exception.message}", channel: "#vitacity")
+  end
+end

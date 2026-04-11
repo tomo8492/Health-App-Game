@@ -60,6 +60,20 @@ final class CitySceneCoordinator {
         scene?.applyPremiumTheme()
     }
 
+    /// AppState.todayTotalCP と絶対値で同期（RootView の onChange から呼ぶ）
+    /// addCP は差分加算のため、AppState の絶対値と合わせるにはこちらを使う
+    func syncTotalCP(_ cp: Int) {
+        guard cp != totalCP else { return }
+        let delta = cp - totalCP
+        totalCP = min(cp, 999_999)
+        if delta > 0 {
+            scene?.onCPAdded(axis: .lifestyle, amount: delta)  // 全軸合算を中央広場に反映
+        }
+        updateWeather()
+        updateNPCCount()
+        checkMapExpansion()
+    }
+
     // MARK: - 天気更新（CLAUDE.md Key Rule 2: CP→天気）
 
     private func updateWeather() {

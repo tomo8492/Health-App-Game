@@ -24,20 +24,30 @@ final class AppState {
 
     // MARK: - 今日の記録
 
-    var todayRecord: DailyRecord?
+    var todayRecord:  DailyRecord? = nil
+    var todayTotalCP: Int          = 0   // 明示的に管理（computed だと @Model の変更を追跡しない）
+    var todayStreak:  Int          = 0
 
-    var todayTotalCP: Int {
-        todayRecord?.totalCP ?? 0
+    // MARK: - 今日の記録をリフレッシュ（起動時・記録保存後に呼ぶ）
+
+    func refreshTodayRecord(streakManager: StreakManager) async {
+        do {
+            let record   = try await streakManager.todayRecord()
+            let streak   = try await streakManager.currentStreak()
+            todayRecord  = record
+            todayTotalCP = record.totalCP
+            todayStreak  = streak
+        } catch {
+            self.error = .dataLoadFailed(error.localizedDescription)
+        }
     }
-
-    var todayStreak: Int = 0
 
     // MARK: - プレミアム
 
     var isPremium: Bool = false
 
-    /// プレミアム限定チェック（ウィジェット中/大サイズ、全期間統計など）
-    var canViewFullStatistics: Bool { isPremium }
+    /// プレミアム限定チェック
+    var canViewFullStatistics:   Bool { isPremium }
     var canUseWidgetMediumLarge: Bool { isPremium }
 
     // MARK: - エラー

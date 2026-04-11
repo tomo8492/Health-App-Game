@@ -51,19 +51,19 @@ struct VitaCityApp: App {
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self)  private var appState
+
     @State private var selectedTab:        AppTab = .home
     @State private var achievementEngine   = AchievementEngine()
+    @State private var cityCoordinator     = CitySceneCoordinator()   // ★ RootView で一元管理
     @State private var pendingAchievement: Achievement? = nil
     @State private var showPremiumStore:   Bool = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
             // ホーム SCR-001（SpriteKit 街ビュー）
-            NavigationStack {
-                HomeView()
-            }
-            .tabItem { Label("ホーム", systemImage: "house.fill") }
-            .tag(AppTab.home)
+            NavigationStack { HomeView() }
+                .tabItem { Label("ホーム", systemImage: "house.fill") }
+                .tag(AppTab.home)
 
             // 記録ダッシュボード SCR-002
             NavigationStack {
@@ -80,31 +80,36 @@ struct RootView: View {
             .tag(AppTab.statistics)
 
             // 街管理
-            NavigationStack {
-                CityManagementView()
-            }
-            .tabItem { Label("街管理", systemImage: "building.2.fill") }
-            .tag(AppTab.city)
+            NavigationStack { CityManagementView() }
+                .tabItem { Label("街管理", systemImage: "building.2.fill") }
+                .tag(AppTab.city)
 
-            // 実績 SCR（Phase 4）
-            NavigationStack {
-                AchievementsView()
-            }
-            .tabItem {
-                Label("実績", systemImage: "trophy.fill")
-            }
-            .tag(AppTab.achievements)
-            .environment(achievementEngine)
+            // 実績（Phase 4）
+            NavigationStack { AchievementsView() }
+                .tabItem { Label("実績", systemImage: "trophy.fill") }
+                .tag(AppTab.achievements)
+                .environment(achievementEngine)
         }
         .tint(Color.vcCP)
+        // CitySceneCoordinator を全タブから参照可能にする（CLAUDE.md Key Rule 9）
+        .environment(cityCoordinator)
         .achievementBanner($pendingAchievement)
         .sheet(isPresented: $showPremiumStore) {
-            PremiumStoreView()
-                .environment(appState)
+            PremiumStoreView().environment(appState)
         }
         .task { await setupApp() }
-        .onChange(of: appState.todayTotalCP) { _, _ in
+        // CP 変化を街ビューへ同期 ★
+        .onChange(of: appState.todayTotalCP) { _, newCP in
+            cityCoordinator.syncTotalCP(newCP)
             Task { await checkAchievements() }
+        }
+        // 歩数変化を街の NPC 数へ同期
+        .onChange(of: appState.todaySteps) { _, steps in
+            cityCoordinator.updateStepCount(steps)
+        }
+        // プレミアム解放を街へ反映
+        .onChange(of: appState.isPremium) { _, premium in
+            if premium { cityCoordinator.unlockPremium() }
         }
     }
 
@@ -118,19 +123,48 @@ struct RootView: View {
         DailyRecordRepository(modelContext: modelContext)
     }
 
-    // MARK: - App 起動時の処理
+    // MARK: - App 起動時の処理 ★ 全修正済み
 
     private func setupApp() async {
+        let streakMgr = makeStreakManager()
         let hkService = HealthKitService()
+
+        // 1. HealthKit 認可
         if hkService.isAvailable {
             try? await hkService.requestAuthorization()
             appState.isHealthKitAuthorized = true
         }
+
+        // 2. 今日の DailyRecord を取得して AppState に設定 ★
+        await appState.refreshTodayRecord(streakManager: streakMgr)
+
+        // 3. 歩数取得（バックグラウンド監視も開始）
         let steps = (try? await hkService.fetchTodaySteps()) ?? 0
         appState.todaySteps = steps
-        hkService.startStepCountObserver { steps in
-            appState.todaySteps = steps
+        hkService.startStepCountObserver { steps in appState.todaySteps = steps }
+
+        // 4. 睡眠データ（CLAUDE.md Key Rule 7: 朝の起動時のみ・前夜分）★
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12, let record = appState.todayRecord, record.sleepCP == 0 {
+            let sleepHours = (try? await hkService.fetchLastNightSleep()) ?? 0
+            if sleepHours > 0 {
+                let sleepCP = CPPointCalculator.sleepCP(hours: sleepHours)
+                try? await streakMgr.updateCP(for: record, axis: .sleep, cp: sleepCP)
+                await appState.refreshTodayRecord(streakManager: streakMgr)
+            }
         }
+
+        // 5. 旧データアーカイブ（無料版: 90日超）★
+        try? await streakMgr.archiveOldRecords(isPremium: appState.isPremium)
+
+        // 6. 起動時の街ビュー同期
+        cityCoordinator.syncTotalCP(appState.todayTotalCP)
+        cityCoordinator.updateTimeOfDay(Calendar.current.component(.hour, from: Date()))
+
+        // 7. 通知スケジュール
+        await NotificationService.shared.scheduleDailyReminder()
+
+        // 8. 実績チェック
         await checkAchievements()
     }
 
@@ -139,21 +173,19 @@ struct RootView: View {
     private func checkAchievements() async {
         let repo = makeDailyRecordRepository()
         guard let allRecords = try? await repo.recentRecords(limit: 365) else { return }
-        let streak = (try? await repo.currentStreak()) ?? 0
+        let streak = appState.todayStreak
 
         achievementEngine.checkAchievements(
             totalCP:     appState.todayTotalCP,
             streak:      streak,
-            npcCount:    0,     // CitySceneCoordinator から取得（Phase 2 連携）
+            npcCount:    cityCoordinator.npcCount,  // ★ 実際の NPC 数を参照
             todayRecord: appState.todayRecord,
             allRecords:  allRecords
         )
-        // バナー表示
         if let unlocked = achievementEngine.recentlyUnlocked {
             pendingAchievement = unlocked
             achievementEngine.recentlyUnlocked = nil
         }
-        // ウィジェット更新
         let record = appState.todayRecord
         WidgetDataStore.save(
             totalCP:     record?.totalCP     ?? 0,

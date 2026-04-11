@@ -1,0 +1,56 @@
+{
+  "identifier" : "com.vitacity.storekit",
+  "nonConsumableProducts" : [
+    {
+      "displayPrice" : "610",
+      "familySharable" : true,
+      "internalID" : "com.vitacity.premium.lifetime",
+      "localizations" : [
+        {
+          "description" : "VITA CITY のすべてのプレミアム機能を永久に解放します。マップ無制限拡張、全期間統計、ウィジェット全サイズ、詳細ヘルスレポートなど。",
+          "displayName" : "VITA CITY プレミアム（買い切り）",
+          "locale" : "ja_JP"
+        },
+        {
+          "description" : "Unlock all VITA CITY premium features forever. Unlimited map expansion, full statistics history, all widget sizes, detailed health reports, and more.",
+          "displayName" : "VITA CITY Premium (Lifetime)",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.vitacity.premium.lifetime",
+      "referenceName" : "VITA CITY Premium Lifetime",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "ja_JP",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      }
+    ]
+  },
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

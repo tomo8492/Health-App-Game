@@ -49,9 +49,10 @@ struct RecordDashboardView: View {
 
     @State var viewModel: RecordDashboardViewModel
     @State private var activeSheet: CPAxis? = nil
+    @Environment(AppState.self) private var appState  // ★ 保存後に AppState を同期
 
     init(streakManager: StreakManager) {
-        self._viewModel = State(wrappedValue: RecordDashboardViewModel(streakManager: streakManager))
+        _viewModel = State(wrappedValue: RecordDashboardViewModel(streakManager: streakManager))
     }
 
     var body: some View {
@@ -156,14 +157,41 @@ struct RecordDashboardView: View {
 
     private var weeklyBarSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("直近7日間")
-                .font(.headline)
-            // Phase 3 で Swift Charts に置き換え予定
-            Text("グラフは Phase 3 で実装予定")
-                .font(.caption)
-                .foregroundStyle(Color.vcSecondaryLabel)
-                .frame(maxWidth: .infinity, minHeight: 80)
-                .background(Color.vcSecondary, in: RoundedRectangle(cornerRadius: 12))
+            HStack {
+                Text("今日の軸別 CP")
+                    .font(.headline)
+                Spacer()
+                Text("統計タブで詳細を確認")
+                    .font(.caption2)
+                    .foregroundStyle(Color.vcSecondaryLabel)
+            }
+            // 今日の5軸 CP バー
+            VStack(spacing: 8) {
+                ForEach(CPAxis.allCases, id: \.self) { axis in
+                    let cp = viewModel.cp(for: axis)
+                    HStack(spacing: 10) {
+                        Image(systemName: axis.icon)
+                            .font(.caption)
+                            .foregroundStyle(axis.color)
+                            .frame(width: 16)
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(axis.color.opacity(0.12))
+                                Capsule().fill(axis.color)
+                                    .frame(width: geo.size.width * CGFloat(cp) / 100.0)
+                            }
+                            .frame(height: 6)
+                        }
+                        .frame(height: 6)
+                        Text("\(cp)")
+                            .font(.caption2.monospacedDigit().weight(.bold))
+                            .foregroundStyle(axis.color)
+                            .frame(width: 28, alignment: .trailing)
+                    }
+                }
+            }
+            .padding(12)
+            .background(Color.vcSecondary, in: RoundedRectangle(cornerRadius: 12))
         }
     }
 
@@ -193,7 +221,15 @@ struct RecordDashboardView: View {
                 ProgressView().task { await viewModel.load() }
             }
         }
-        .onDisappear { Task { await viewModel.load() } }
+        .onDisappear {
+            Task {
+                await viewModel.load()
+                // 記録保存後に AppState を更新 → RootView の onChange → 街・実績・ウィジェット反映 ★
+                appState.todayRecord  = viewModel.todayRecord
+                appState.todayTotalCP = viewModel.totalCP
+                appState.todayStreak  = viewModel.streak
+            }
+        }
     }
 }
 
