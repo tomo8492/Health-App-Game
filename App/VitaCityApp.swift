@@ -70,6 +70,7 @@ struct RootView: View {
     @Environment(AppState.self)  private var appState
     @State private var selectedTab:        AppTab = .home
     @State private var achievementEngine   = AchievementEngine()
+    @State private var notificationService = NotificationService()
     @State private var pendingAchievement: Achievement? = nil
     @State private var showPremiumStore:   Bool = false
 
@@ -88,6 +89,7 @@ struct RootView: View {
             }
             .tabItem { Label("記録", systemImage: "pencil.and.list.clipboard") }
             .tag(AppTab.record)
+            .environment(notificationService)
 
             // 統計 SCR-003（Swift Charts）
             NavigationStack {
@@ -144,6 +146,11 @@ struct RootView: View {
         // 今日の記録を AppState に反映（todayRecord が nil のまま CP が 0 になるのを防ぐ）
         await appState.refreshTodayRecord(using: makeStreakManager())
 
+        // 通知許可リクエスト + 毎日リマインダーを登録
+        await notificationService.requestAuthorization()
+        notificationService.scheduleDailyReminder(hour: 20)
+        notificationService.clearBadge()
+
         let hkService = HealthKitService()
         if hkService.isAvailable {
             try? await hkService.requestAuthorization()
@@ -171,11 +178,22 @@ struct RootView: View {
             todayRecord: appState.todayRecord,
             allRecords:  allRecords
         )
-        // バナー表示
+        // 実績解放バナー + 通知
         if let unlocked = achievementEngine.recentlyUnlocked {
             pendingAchievement = unlocked
+            notificationService.sendAchievementNotification(
+                title:       unlocked.title,
+                description: unlocked.description,
+                icon:        unlocked.icon
+            )
             achievementEngine.recentlyUnlocked = nil
         }
+        // ストリークマイルストーン通知
+        notificationService.sendStreakNotification(streak: streak)
+
+        // CP マイルストーン通知
+        notificationService.sendCPMilestoneNotification(totalCP: appState.todayTotalCP)
+
         // ウィジェット更新
         let record = appState.todayRecord
         WidgetDataStore.save(

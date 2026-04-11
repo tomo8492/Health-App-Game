@@ -49,7 +49,8 @@ struct RecordDashboardView: View {
 
     @State var viewModel: RecordDashboardViewModel
     @State private var activeSheet: CPAxis? = nil
-    @Environment(AppState.self) private var appState
+    @Environment(AppState.self)           private var appState
+    @Environment(NotificationService.self) private var notificationService
 
     init(streakManager: StreakManager) {
         self._viewModel = State(wrappedValue: RecordDashboardViewModel(streakManager: streakManager))
@@ -199,6 +200,8 @@ struct RecordDashboardView: View {
                 await viewModel.load()
                 // 記録保存後に AppState.todayRecord を同期 → HomeView の CP 表示・街の更新に反映
                 await appState.refreshTodayRecord(using: viewModel.streakManager)
+                // 記録済みなので通知バッジをクリア
+                notificationService.cancelTodayReminder()
             }
         }
     }
