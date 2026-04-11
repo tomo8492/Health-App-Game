@@ -10,6 +10,7 @@ import Foundation
 
 // MARK: - Repository Protocol
 
+@MainActor
 protocol DailyRecordRepositoryProtocol {
 
     /// 指定日の記録を取得（なければ nil）

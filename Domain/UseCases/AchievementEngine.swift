@@ -205,7 +205,7 @@ final class AchievementEngine {
             }
             return (consecutive >= target, min(Double(consecutive) / Double(target), 1.0))
 
-        case .stepGoal(let steps, let days):
+        case .stepGoal(_, let days):
             // 歩数は HealthKit 管理なので今は allRecords の exerciseCP >= 60 で代用
             let count = allRecords.filter { $0.exerciseCP >= 60 }.count
             return (count >= days, min(Double(count) / Double(days), 1.0))

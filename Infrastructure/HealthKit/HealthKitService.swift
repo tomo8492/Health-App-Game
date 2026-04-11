@@ -12,6 +12,7 @@ import HealthKit
 
 // MARK: - Protocol
 
+@MainActor
 protocol HealthKitServiceProtocol {
     var isAvailable: Bool { get }
     func requestAuthorization() async throws
