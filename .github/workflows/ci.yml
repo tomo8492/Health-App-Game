@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, "claude/**" ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Job 1: Domain ロジックのユニットテスト（Swift Package）
+  # isowords パターン: コアロジックをモジュール分離してCIで高速テスト
+  # ─────────────────────────────────────────────
+  test-core:
+    name: "Test VitaCityCore (Swift Package)"
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: sudo xcode-select -switch /Applications/Xcode_16.2.app
+
+      - name: Cache Swift PM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build VitaCityCore
+        run: swift build --configuration debug
+
+      - name: Run VitaCityCore Tests
+        run: swift test --parallel
+
+  # ─────────────────────────────────────────────
+  # Job 2: iOS アプリの Xcode テスト
+  # isowords パターン: Simulator で結合テスト
+  # ─────────────────────────────────────────────
+  test-ios:
+    name: "Test iOS App (Simulator)"
+    runs-on: macos-15
+    needs: test-core
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 16
+        run: sudo xcode-select -switch /Applications/Xcode_16.2.app
+
+      - name: Run iOS Tests
+        run: |
+          xcodebuild test \
+            -scheme VitaCity \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.2' \
+            -resultBundlePath TestResults \
+            -enableCodeCoverage YES \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+        continue-on-error: true  # Xcode プロジェクト作成後に有効化
+
+  # ─────────────────────────────────────────────
+  # Job 3: SwiftLint（nalexn パターン: コード品質チェック）
+  # ─────────────────────────────────────────────
+  lint:
+    name: "SwiftLint"
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --reporter github-actions-logging
