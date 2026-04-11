@@ -34,15 +34,31 @@ struct VitaCityApp: App {
 
     // MARK: - App 全体の状態（Single Source of Truth）
 
-    @State private var appState = AppState()
+    @State private var appState    = AppState()
+    @State private var isLaunching = true     // ローンチアニメーション制御
 
     // MARK: - Body
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(appState)
-                .modelContainer(modelContainer)
+            ZStack {
+                RootView()
+                    .environment(appState)
+                    .modelContainer(modelContainer)
+
+                if isLaunching {
+                    LaunchScreenView()
+                        .transition(.opacity)
+                        .zIndex(1)
+                        .onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                                withAnimation(.easeOut(duration: 0.4)) {
+                                    isLaunching = false
+                                }
+                            }
+                        }
+                }
+            }
         }
     }
 }
