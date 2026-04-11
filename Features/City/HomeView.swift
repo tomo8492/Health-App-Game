@@ -16,30 +16,36 @@ struct HomeView: View {
     @State private var cachedScene: CityScene? = nil
 
     var body: some View {
-        ZStack {
-            // ─── SpriteKit 街ビュー（上 60%）───
-            GeometryReader { geo in
-                SpriteView(
-                    scene: makeScene(size: geo.size),
-                    options: [.allowsTransparency]
-                )
-                .ignoresSafeArea()
+        VStack(spacing: 0) {
+            ZStack {
+                // ─── SpriteKit 街ビュー ───
+                GeometryReader { geo in
+                    SpriteView(
+                        scene: makeScene(size: geo.size),
+                        options: [.allowsTransparency]
+                    )
+                    .ignoresSafeArea()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // ─── 下部オーバーレイ ───
+                VStack {
+                    // 上部: 日付・天気・CP
+                    topBar
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+
+                    Spacer()
+
+                    // 下部: 本日の CP サマリー
+                    bottomSummary
+                        .padding()
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // ─── 下部オーバーレイ ───
-            VStack {
-                // 上部: 日付・天気・CP
-                topBar
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                Spacer()
-
-                // 下部: 本日の CP サマリー
-                bottomSummary
-                    .padding()
-            }
+            // ─── バナー広告（プレミアム未購入時のみ・記録画面外）───
+            // App Store 5.1.3: HealthKit データを広告に渡さない
+            AdBannerView()
         }
         .navigationTitle("")
         .navigationBarHidden(true)

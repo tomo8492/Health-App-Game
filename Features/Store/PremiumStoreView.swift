@@ -177,6 +177,8 @@ private struct PremiumFeature {
 }
 
 private let premiumFeatures: [PremiumFeature] = [
+    .init(icon: "nosign",            color: .vcLifestyle, title: "広告非表示",
+          description: "すべての広告を完全に除去。純粋なゲーム体験へ"),
     .init(icon: "map.fill",         color: .vcExercise,  title: "マップ無制限拡張",
           description: "最大 50×50 の巨大マップを解放"),
     .init(icon: "chart.line.uptrend.xyaxis", color: .vcSleep, title: "全期間統計",

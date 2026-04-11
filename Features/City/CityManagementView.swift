@@ -10,8 +10,11 @@ import SwiftUI
 struct CityManagementView: View {
 
     @Environment(AppState.self) private var appState
+    @Environment(AdService.self) private var adService
     @State private var selectedAxis: CPAxis? = nil
     @State private var selectedBuilding: BuildingCatalogEntry? = nil
+    @State private var showRewardResult: Bool = false
+    @State private var earnedCP: Int = 0
 
     private var filteredBuildings: [BuildingCatalogEntry] {
         guard let axis = selectedAxis else { return BuildingCatalog.all }
@@ -23,6 +26,12 @@ struct CityManagementView: View {
             VStack(spacing: 20) {
                 cityStatusCard
                     .padding(.horizontal)
+
+                // リワード広告カード（プレミアム未購入時のみ）
+                if !appState.isPremium {
+                    rewardAdCard
+                        .padding(.horizontal)
+                }
 
                 axisFilterRow
                     .padding(.horizontal)
@@ -37,6 +46,66 @@ struct CityManagementView: View {
         .sheet(item: $selectedBuilding) { entry in
             BuildingCatalogDetailSheet(entry: entry)
         }
+        .alert("ボーナス CP 獲得！", isPresented: $showRewardResult) {
+            Button("OK") {}
+        } message: {
+            Text("+\(earnedCP) CP を獲得しました。街の発展に役立てましょう！")
+        }
+    }
+
+    // MARK: - リワード広告カード
+
+    private var rewardAdCard: some View {
+        Button {
+            guard let windowScene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+                  let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController
+            else { return }
+
+            adService.showRewardAd(from: rootVC) { reward in
+                if case .bonusCP(let amount) = reward {
+                    earnedCP = amount
+                    showRewardResult = true
+                    // AppState に CP を反映（今日の記録に加算）
+                    // 実際の加算は StreakManager 経由で行う（Phase 2 連携）
+                }
+            }
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.vcCP.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "play.rectangle.fill")
+                        .font(.title3)
+                        .foregroundStyle(Color.vcCP)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("広告を見て +50 CP ゲット")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.vcLabel)
+                    Text(adService.isRewardAdReady ? "準備完了・タップして再生" : "広告を読み込み中...")
+                        .font(.caption)
+                        .foregroundStyle(adService.isRewardAdReady ? Color.vcCP : Color.vcSecondaryLabel)
+                }
+
+                Spacer()
+
+                if adService.isRewardAdReady {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.vcSecondaryLabel)
+                } else {
+                    ProgressView()
+                        .scaleEffect(0.75)
+                }
+            }
+            .padding(14)
+            .background(Color.vcCardBackground, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .disabled(!adService.isRewardAdReady)
     }
 
     // MARK: - 街ステータスカード

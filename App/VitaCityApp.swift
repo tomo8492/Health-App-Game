@@ -35,6 +35,7 @@ struct VitaCityApp: App {
     // MARK: - App 全体の状態（Single Source of Truth）
 
     @State private var appState    = AppState()
+    @State private var adService   = AdService()
     @State private var isLaunching = true     // ローンチアニメーション制御
 
     // MARK: - Body
@@ -44,6 +45,7 @@ struct VitaCityApp: App {
             ZStack {
                 RootView()
                     .environment(appState)
+                    .environment(adService)
                     .modelContainer(modelContainer)
 
                 if isLaunching {
@@ -73,6 +75,7 @@ struct RootView: View {
     @State private var notificationService = NotificationService()
     @State private var pendingAchievement: Achievement? = nil
     @State private var showPremiumStore:   Bool = false
+    @Environment(AdService.self) private var adService
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -104,6 +107,7 @@ struct RootView: View {
             }
             .tabItem { Label("街管理", systemImage: "building.2.fill") }
             .tag(AppTab.city)
+            .environment(adService)
 
             // 実績 SCR（Phase 4）
             NavigationStack {
@@ -145,6 +149,9 @@ struct RootView: View {
     private func setupApp() async {
         // 今日の記録を AppState に反映（todayRecord が nil のまま CP が 0 になるのを防ぐ）
         await appState.refreshTodayRecord(using: makeStreakManager())
+
+        // 広告 SDK 初期化（プレミアム未購入時のみ実質動作）
+        await adService.initialize()
 
         // 通知許可リクエスト + 毎日リマインダーを登録
         await notificationService.requestAuthorization()
