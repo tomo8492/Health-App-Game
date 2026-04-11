@@ -1,0 +1,218 @@
+/* VITA CITY - English Localization */
+
+// MARK: - Tab Bar
+"ホーム" = "Home";
+"記録" = "Record";
+"統計" = "Statistics";
+"街管理" = "City Mgmt";
+"実績" = "Achievements";
+
+// MARK: - HomeView / Weather
+"快晴！街は活気に満ちています" = "Sunny! The city is full of energy";
+"晴れ時々曇り。良い調子です" = "Partly cloudy. You're doing great";
+"曇り空。記録を頑張りましょう" = "Cloudy. Let's keep up the records";
+"雨が降っています。健康習慣を続けよう" = "Raining. Keep up those healthy habits";
+"嵐。記録を積み重ねて街を守ろう！" = "Stormy. Build up records to protect the city!";
+
+// MARK: - Building Detail
+"建物詳細" = "Building Details";
+"閉じる" = "Close";
+"軸" = "Axis";
+
+// MARK: - Record Dashboard (SCR-002)
+"今日の記録" = "Today's Record";
+"今日の健康記録" = "Today's Health Record";
+"本日全軸記録完了！" = "All axes recorded today!";
+"クイック記録" = "Quick Record";
+"直近7日間" = "Last 7 Days";
+"グラフは Phase 3 で実装予定" = "Charts coming in Phase 3";
+
+// MARK: - Exercise (SCR-011)
+"運動を記録する" = "Record Exercise";
+"HealthKit から自動取得" = "Auto-fetched from HealthKit";
+"歩数" = "Steps";
+"歩" = "steps";
+"目標: 10,000 歩 = 60CP" = "Goal: 10,000 steps = 60 CP";
+"ワークアウト" = "Workout";
+"分" = "min";
+"時間" = "Time";
+"30分達成 ✓ +40CP" = "30 min achieved ✓ +40 CP";
+"ランニング" = "Running";
+"ウォーキング" = "Walking";
+"筋トレ" = "Strength Training";
+"水泳" = "Swimming";
+"ヨガ" = "Yoga";
+"サイクリング" = "Cycling";
+"その他" = "Other";
+
+// MARK: - Diet (SCR-012)
+"食事" = "Diet";
+"3食の評価" = "Rate 3 Meals";
+"朝食" = "Breakfast";
+"昼食" = "Lunch";
+"夕食" = "Dinner";
+"詳細（任意）" = "Notes (optional)";
+"間食あり（-10CP）" = "Had snacks (−10 CP)";
+"タンパク質多め" = "High protein";
+"野菜摂取あり" = "Ate vegetables";
+"食事を記録する" = "Record Diet";
+
+// MARK: - Alcohol (SCR-013)
+"飲酒" = "Alcohol";
+"禁酒！最高の選択です" = "No drinking! Great choice";
+"適量。健康的な楽しみ方" = "Moderate. Healthy enjoyment";
+"少し多めです" = "A little too much";
+"過飲：健康に注意" = "Excessive: watch your health";
+"飲酒を記録する" = "Record Alcohol";
+"ドリンク数" = "Drinks";
+"1ドリンク = ビール350ml" = "1 drink = 350 ml beer";
+"種類" = "Type";
+"ビール" = "Beer";
+"ワイン" = "Wine";
+"日本酒" = "Sake";
+"ウイスキー" = "Whiskey";
+"焼酎" = "Shochu";
+"時刻（任意）" = "Time (optional)";
+"開始" = "Start";
+"終了" = "End";
+"終了時刻を記録" = "Record end time";
+
+// MARK: - Sleep (SCR-014)
+"睡眠" = "Sleep";
+"睡眠を記録する" = "Record Sleep";
+"理想的な睡眠！" = "Ideal sleep!";
+"少し長め" = "A bit long";
+"もう少し眠れると良いです" = "Could use a bit more sleep";
+"睡眠が短すぎます" = "Sleep is too short";
+"就寝・起床時刻" = "Bedtime & Wake time";
+"就寝" = "Bedtime";
+"起床" = "Wake time";
+"睡眠の目安" = "Sleep Guidelines";
+"7〜9時間" = "7–9 hours";
+"9時間超" = "Over 9 hours";
+"6時間台" = "~6 hours";
+"5時間以下" = "≤ 5 hours";
+"Apple Health から自動取得" = "Auto-fetched from Apple Health";
+
+// MARK: - Lifestyle (SCR-015)
+"生活習慣" = "Lifestyle";
+"生活習慣を記録する" = "Record Lifestyle";
+"ストレスレベル" = "Stress Level";
+"習慣チェック (+30CP)" = "Habit Check (+30 CP)";
+"瞑想・深呼吸" = "Meditation & Deep Breathing";
+"読書・学習" = "Reading & Learning";
+"デジタルデトックス" = "Digital Detox";
+"平穏" = "Calm";
+"少し" = "Slight";
+"普通" = "Normal";
+"高め" = "High";
+"強い" = "Strong";
+"+40CP 低ストレス！" = "+40 CP — Low Stress!";
+"+20CP 中ストレス" = "+20 CP — Medium Stress";
+"ストレス管理が必要" = "Stress management needed";
+
+// MARK: - Statistics (SCR-003)
+"期間" = "Period";
+"合計 CP" = "Total CP";
+"最高記録" = "Best Day";
+"CP/日" = "CP/day";
+"記録日数" = "Days Recorded";
+"日" = "days";
+"日別 CP 記録" = "Daily CP Record";
+"記録がありません" = "No records yet";
+"少ない" = "Low";
+
+// MARK: - Achievements
+"解除済み実績" = "Achievements Unlocked";
+"実績解除！" = "Achievement Unlocked!";
+"すべて" = "All";
+
+// MARK: - City Management
+"今日の合計" = "Today's Total";
+"建物 28 種 + 自動生成 2 種" = "28 Building Types + 2 Auto-generated";
+"マップ拡張" = "Map Expansion";
+"累計 CP で自動拡張" = "Auto-expands with total CP";
+
+// MARK: - Premium Store
+"VITA CITY プレミアム" = "VITA CITY Premium";
+"買い切り・永久ライセンス" = "One-time purchase · Lifetime license";
+"マップ無制限拡張" = "Unlimited Map Expansion";
+"最大 50×50 の巨大マップを解放" = "Unlocks the full 50×50 map";
+"全期間統計" = "Full History Statistics";
+"90日以上の記録を無制限に閲覧" = "View all records beyond 90 days";
+"ウィジェット全サイズ" = "All Widget Sizes";
+"中・大サイズのウィジェットを解放" = "Unlocks medium and large widgets";
+"詳細ヘルスレポート" = "Detailed Health Report";
+"週次・月次の健康トレンドを分析" = "Weekly & monthly health trend analysis";
+"データ無制限保存" = "Unlimited Data Storage";
+"記録データが永久に保持される" = "Records kept permanently";
+"プレミアムテーマ" = "Premium Theme";
+"街のビジュアルテーマを変更可能" = "Customizable city visual theme";
+"読み込み中..." = "Loading...";
+"処理中..." = "Processing...";
+"解放済み" = "Unlocked";
+"プレミアムを購入" = "Purchase Premium";
+"以前の購入を復元" = "Restore Purchases";
+"VITA CITY プレミアムは買い切りの非消耗型アイテムです。ファミリー共有に対応しています。購入は Apple ID に紐づき、同じ Apple ID を使う全デバイスで有効です。" = "VITA CITY Premium is a one-time, non-consumable purchase. Supports Family Sharing. Your purchase is linked to your Apple ID and is valid on all devices using the same Apple ID.";
+
+// MARK: - Achievement Titles & Descriptions
+"初めての一歩" = "First Step";
+"初めて CP を記録した" = "Recorded CP for the first time";
+"100 CP 達成" = "100 CP Achieved";
+"累計 100 CP を獲得" = "Earned 100 CP total";
+"1,000 CP 突破" = "1,000 CP Breakthrough";
+"累計 1,000 CP を獲得" = "Earned 1,000 CP total";
+"10,000 CP の街" = "10,000 CP City";
+"累計 10,000 CP を獲得" = "Earned 10,000 CP total";
+"完璧な一日" = "Perfect Day";
+"1日で全軸 100CP（500CP）を達成" = "Achieved 100 CP in all 5 axes (500 CP) in one day";
+"3日連続" = "3-Day Streak";
+"3日間連続で記録" = "Recorded 3 consecutive days";
+"7日連続" = "7-Day Streak";
+"1週間連続で記録" = "Recorded 7 consecutive days";
+"30日連続" = "30-Day Streak";
+"1ヶ月連続で記録" = "Recorded 30 consecutive days";
+"100日の軌跡" = "100-Day Journey";
+"100日間連続で記録" = "Recorded 100 consecutive days";
+"ウォーカー" = "Walker";
+"1日 10,000 歩を 7 日達成" = "Reached 10,000 steps/day for 7 days";
+"ランナー" = "Runner";
+"運動 100CP を 10 回達成" = "Achieved exercise 100 CP 10 times";
+"アスリート" = "Athlete";
+"運動 100CP を 30 回達成" = "Achieved exercise 100 CP 30 times";
+"節制の始まり" = "Beginning of Moderation";
+"飲酒ゼロを 7 日連続" = "7 consecutive alcohol-free days";
+"節制マスター" = "Moderation Master";
+"飲酒ゼロを 30 日連続" = "30 consecutive alcohol-free days";
+"快眠生活" = "Sleep Well";
+"睡眠 100CP を 7 回連続達成" = "Achieved sleep 100 CP 7 times in a row";
+"街が賑わってきた" = "City is Getting Lively";
+"NPC（住民）が 10 人に" = "Reached 10 NPC residents";
+"大都市への道" = "Path to Metropolis";
+"累計 5,000 CP（30×30 マップ解放）" = "5,000 CP total (30×30 map unlocked)";
+"メトロポリス" = "Metropolis";
+"累計 30,000 CP（最大マップ解放）" = "30,000 CP total (max map unlocked)";
+
+// MARK: - Notifications
+"今日の健康記録" = "Today's Health Record";
+"今日の記録をつけて街を発展させましょう！" = "Log today's health and grow your city!";
+"3日連続で健康記録を続けています。この調子で！" = "3 consecutive days of health records. Keep it up!";
+"1週間連続達成！街の住民たちも喜んでいます 🎉" = "One week streak! The city residents are thrilled 🎉";
+"2週間連続！あなたの習慣が街を輝かせています ✨" = "Two weeks! Your habits are lighting up the city ✨";
+"30日連続！素晴らしい健康習慣が身についています 🏆" = "30 days! You've built incredible healthy habits 🏆";
+"60日連続達成！街はあなたのおかげで大発展中 🌇" = "60 days! The city is thriving thanks to you 🌇";
+"100日の軌跡！あなたは真の健康マスターです 👑" = "100-day journey! You are a true health master 👑";
+"🌆 街が成長しました！" = "🌆 Your city has grown!";
+"累計 100 CP 達成！街に最初の建物が増えました" = "100 CP total! The city's first new building appeared";
+"累計 500 CP 達成！街に活気が出てきました" = "500 CP total! The city is coming alive";
+"累計 1,000 CP 突破！商業エリアが拡大中" = "1,000 CP reached! Commercial area expanding";
+"累計 3,000 CP！住民たちの笑顔が増えています" = "3,000 CP! Residents are smiling more";
+"累計 5,000 CP！マップが 30×30 に拡大しました 🗺️" = "5,000 CP! Map expanded to 30×30 🗺️";
+"累計 10,000 CP！大都市への道が開けてきました" = "10,000 CP! The road to a metropolis is opening";
+"累計 15,000 CP！マップが 40×40 に拡大しました 🏙️" = "15,000 CP! Map expanded to 40×40 🏙️";
+"累計 30,000 CP！最大マップ 50×50 に到達！ 🌆" = "30,000 CP! Max map 50×50 reached! 🌆";
+"累計 50,000 CP！あなたの街は大都市になりました 👑" = "50,000 CP! Your city has become a true metropolis 👑";
+
+// MARK: - Common
+"完了" = "Done";
+"保存エラー" = "Save Error";

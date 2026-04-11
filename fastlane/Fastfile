@@ -1,0 +1,155 @@
+# Fastfile
+# VITA CITY — fastlane レーン定義
+#
+# 利用可能なレーン:
+#   bundle exec fastlane test          → ユニットテスト実行
+#   bundle exec fastlane lint          → SwiftLint チェック
+#   bundle exec fastlane beta          → TestFlight にアップロード
+#   bundle exec fastlane release       → App Store に提出
+#   bundle exec fastlane bump_version  → バージョン番号をインクリメント
+
+default_platform :ios
+
+platform :ios do
+
+  # ─────────────────────────────────────────────
+  # MARK: - before_all（全レーン共通の前処理）
+  # ─────────────────────────────────────────────
+
+  before_all do
+    ensure_git_status_clean   # 未コミットの変更がある場合は中止
+  end
+
+  # ─────────────────────────────────────────────
+  # MARK: - test（ユニットテスト）
+  # ─────────────────────────────────────────────
+
+  desc "Swift Testing によるユニットテストを実行"
+  lane :test do
+    run_tests(
+      scheme:      "VitaCity",
+      device:      "iPhone 16",
+      clean:       true,
+      code_coverage: true,
+      result_bundle: true,
+      output_directory: "./test_output"
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # MARK: - lint（コード品質チェック）
+  # ─────────────────────────────────────────────
+
+  desc "SwiftLint でコードスタイルをチェック"
+  lane :lint do
+    swiftlint(
+      mode:         :lint,
+      strict:       true,
+      ignore_exit_status: false,
+      config_file:  ".swiftlint.yml"
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # MARK: - beta（TestFlight 配信）
+  # ─────────────────────────────────────────────
+
+  desc "TestFlight にビルドをアップロード"
+  lane :beta do
+    # コード署名証明書を取得（CI 環境では MATCH_PASSWORD 環境変数が必要）
+    match(type: "appstore", readonly: is_ci)
+
+    # ビルド番号をインクリメント
+    increment_build_number(
+      build_number: latest_testflight_build_number + 1
+    )
+
+    # ビルド
+    build_app
+
+    # TestFlight にアップロード
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      changelog: changelog_from_git_commits(
+        merge_commit_filtering: "exclude_merges"
+      )
+    )
+
+    # Slack 通知（SLACK_URL 環境変数が設定されている場合）
+    if ENV["SLACK_URL"]
+      slack(
+        message:         "✅ VITA CITY #{get_version_number} (#{get_build_number}) を TestFlight に配信しました",
+        slack_url:       ENV["SLACK_URL"],
+        success:         true
+      )
+    end
+  end
+
+  # ─────────────────────────────────────────────
+  # MARK: - release（App Store 提出）
+  # ─────────────────────────────────────────────
+
+  desc "App Store に審査提出"
+  lane :release do
+    match(type: "appstore", readonly: is_ci)
+
+    build_app
+
+    upload_to_app_store(
+      force:                          true,
+      skip_metadata:                  false,
+      skip_screenshots:               false,
+      submit_for_review:              true,
+      automatic_release:              false,   # 手動リリース（審査通過後に手動で公開）
+      submission_information: {
+        add_id_info_uses_idfa:           false,
+        export_compliance_uses_encryption: false
+      }
+    )
+
+    if ENV["SLACK_URL"]
+      slack(
+        message:  "🚀 VITA CITY #{get_version_number} を App Store に提出しました",
+        slack_url: ENV["SLACK_URL"],
+        success:   true
+      )
+    end
+  end
+
+  # ─────────────────────────────────────────────
+  # MARK: - bump_version（バージョン番号更新）
+  # ─────────────────────────────────────────────
+
+  desc "パッチバージョンをインクリメント（例: 1.0.0 → 1.0.1）"
+  lane :bump_version do |options|
+    bump_type = options[:type] || "patch"   # patch / minor / major
+    increment_version_number(bump_type: bump_type)
+    version = get_version_number
+    git_commit(
+      path:    ["VitaCity.xcodeproj/project.pbxproj"],
+      message: "chore: bump version to #{version}"
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # MARK: - after_all / error
+  # ─────────────────────────────────────────────
+
+  after_all do |lane|
+    # テストレーン以外はビルド成功後にタグを打つ
+    next if lane == :test || lane == :lint || lane == :bump_version
+    add_git_tag(tag: "#{get_version_number}-#{get_build_number}")
+    push_git_tags
+  end
+
+  error do |lane, exception|
+    if ENV["SLACK_URL"]
+      slack(
+        message:   "❌ VITA CITY #{lane} レーンでエラー: #{exception.message}",
+        slack_url:  ENV["SLACK_URL"],
+        success:    false
+      )
+    end
+  end
+
+end

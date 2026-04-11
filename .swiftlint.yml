@@ -1,0 +1,116 @@
+# .swiftlint.yml
+# VITA CITY — SwiftLint 設定
+
+# チェック対象
+included:
+  - App
+  - Features
+  - Domain
+  - Infrastructure
+  - Core
+  - VitaCityCore
+
+# 対象外
+excluded:
+  - .build
+  - build
+  - fastlane
+  - Pods
+  - "**/*.generated.swift"
+
+# 有効にするルール
+opt_in_rules:
+  - array_init
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - empty_collection_literal
+  - empty_string
+  - enum_case_associated_values_count
+  - explicit_init
+  - first_where
+  - identical_operands
+  - last_where
+  - modifier_order
+  - multiline_function_chains
+  - operator_usage_whitespace
+  - prefer_self_in_static_references
+  - prefer_zero_over_explicit_init
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - toggle_bool
+  - unavailable_function
+  - unneeded_parentheses_in_closure_argument
+  - vertical_parameter_alignment_on_call
+  - yoda_condition
+
+# 無効にするルール
+disabled_rules:
+  - trailing_whitespace         # エディタ設定で管理
+  - todo                        # TODO コメントは開発中に許可
+  - multiple_closures_with_trailing_closure  # SwiftUI では多用するため
+
+# ルール設定
+line_length:
+  warning: 130
+  error:   160
+  ignores_comments: true
+  ignores_urls: true
+
+function_body_length:
+  warning: 60
+  error:   100
+
+type_body_length:
+  warning: 300
+  error:   500
+
+file_length:
+  warning: 500
+  error:   800
+
+cyclomatic_complexity:
+  warning: 10
+  error:   20
+
+identifier_name:
+  min_length:
+    warning: 2
+    error:   1
+  excluded:
+    - id
+    - x
+    - y
+    - i
+    - j
+    - dx
+    - dy
+    - cp
+    - lhs
+    - rhs
+
+type_name:
+  min_length: 3
+  excluded:
+    - ID
+
+# カスタムルール
+custom_rules:
+  no_direct_swiftdata_query:
+    name: "Direct @Query 禁止"
+    regex: "@Query"
+    message: "SwiftData への直接 @Query は禁止。Repository プロトコル経由でアクセスしてください (CLAUDE.md Key Rule 9)"
+    severity: warning
+
+  no_revenueCat:
+    name: "RevenueCat 禁止"
+    regex: "import RevenueCat"
+    message: "RevenueCat は使用禁止。StoreKit2 のみ使用してください (CLAUDE.md Key Rule 3)"
+    severity: error
+
+  no_SKTiled:
+    name: "SKTiled 禁止"
+    regex: "import SKTiled"
+    message: "SKTiled は使用禁止。自前の TiledMapParser を使用してください (CLAUDE.md Key Rule 5)"
+    severity: error

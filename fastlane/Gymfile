@@ -1,0 +1,9 @@
+# Gymfile
+# xcodebuild のデフォルト設定（fastlane gym で使用）
+
+scheme          "VitaCity"
+configuration   "Release"
+export_method   "app-store"
+output_directory "./build"
+output_name      "VitaCity.ipa"
+clean            true

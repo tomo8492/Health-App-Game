@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, develop, "claude/**" ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -77,3 +77,43 @@ jobs:
 
       - name: Run SwiftLint
         run: swiftlint lint --reporter github-actions-logging
+
+  # ─────────────────────────────────────────────
+  # Job 4: TestFlight 配信（main ブランチへの push 時のみ）
+  # ─────────────────────────────────────────────
+  beta:
+    name: "Deploy to TestFlight"
+    runs-on: macos-15
+    needs: [ test-core, test-ios, lint ]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    environment: testflight   # GitHub Environments で手動承認を設定可
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # git タグ・履歴が必要
+
+      - name: Select Xcode 16
+        run: sudo xcode-select -switch /Applications/Xcode_16.2.app
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Install Fastlane
+        run: gem install fastlane --no-document
+
+      - name: Run Fastlane Beta
+        env:
+          APPLE_ID:                        ${{ secrets.APPLE_ID }}
+          APP_STORE_CONNECT_API_KEY_ID:    ${{ secrets.ASC_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY:       ${{ secrets.ASC_API_KEY }}
+          MATCH_GIT_URL:                   ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD:                  ${{ secrets.MATCH_PASSWORD }}
+          TEAM_ID:                         ${{ secrets.TEAM_ID }}
+          SLACK_URL:                       ${{ secrets.SLACK_URL }}
+        run: bundle exec fastlane beta

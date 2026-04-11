@@ -1,0 +1,3 @@
+/* VITA CITY - Japanese Localization (Base)
+   SwiftUI Text() uses the Japanese literal as the lookup key.
+   This file acts as a fallback — keys equal their values in Japanese. */

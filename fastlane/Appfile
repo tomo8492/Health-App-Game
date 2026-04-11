@@ -1,0 +1,7 @@
+# Appfile
+# fastlane 共通設定
+
+app_identifier "com.vitacity.app"        # Bundle ID
+apple_id ENV["APPLE_ID"]                 # Apple ID（CI環境変数から取得）
+itc_team_id ENV["ITC_TEAM_ID"]           # App Store Connect チームID（任意）
+team_id     ENV["TEAM_ID"]               # Developer Portal チームID（任意）

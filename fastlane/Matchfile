@@ -1,0 +1,9 @@
+# Matchfile
+# コード署名証明書・プロファイルを Git リポジトリで一元管理（fastlane match）
+# 使い方: bundle exec fastlane match development / appstore
+
+git_url ENV["MATCH_GIT_URL"]             # 証明書リポジトリの Git URL（CI環境変数）
+storage_mode "git"
+type "development"                        # デフォルト: development / appstore
+app_identifier "com.vitacity.app"
+username ENV["APPLE_ID"]
