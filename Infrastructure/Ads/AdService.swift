@@ -24,20 +24,6 @@ import UIKit
 import GoogleMobileAds
 #endif
 
-// MARK: - 広告ユニット ID
-
-enum AdUnitID {
-    #if DEBUG
-    // Google 公式テスト用 ID（実機・シミュレーター両方で動作）
-    static let banner = "ca-app-pub-3940256099942544/2934735716"
-    static let reward = "ca-app-pub-3940256099942544/1712485313"
-    #else
-    // 本番 ID（AdMob コンソールで取得後に差し替え）
-    static let banner = "ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX"
-    static let reward = "ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX"
-    #endif
-}
-
 // MARK: - リワード種別
 
 enum AdRewardType {
@@ -86,7 +72,7 @@ final class AdService {
         let request = GADRequest()
         do {
             rewardedAd = try await GADRewardedAd.load(
-                withAdUnitID: AdUnitID.reward,
+                withAdUnitID: AdConfig.rewardedAdUnitID,
                 request:      request
             )
             isRewardAdReady = rewardedAd != nil
@@ -112,12 +98,12 @@ final class AdService {
 
         ad.present(fromRootViewController: viewController) { [weak self] in
             // HealthKit データは渡さない（App Store 5.1.3 準拠）
-            completion(.bonusCP(amount: 50))
+            completion(.bonusCP(amount: AdConfig.rewardedAdCPBonus))
             Task { await self?.loadRewardAd() }
         }
         #else
         // SDK 未インストール時はモック報酬を即時付与（開発用）
-        completion(.bonusCP(amount: 50))
+        completion(.bonusCP(amount: AdConfig.rewardedAdCPBonus))
         Task { await loadRewardAd() }
         #endif
     }

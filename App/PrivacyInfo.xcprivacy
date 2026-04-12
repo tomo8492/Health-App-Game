@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        VITA CITY — App Privacy Manifest (PrivacyInfo.xcprivacy)
+        iOS 17.4+ / 2024年以降のApp Store審査で必須
+
+        参考: https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
+    -->
+
+    <!-- MARK: - トラッキング -->
+    <!-- ATT（App Tracking Transparency）を使用しないため false -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- MARK: - トラッキングドメイン -->
+    <!-- トラッキングなし -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!-- MARK: - 収集するデータの種類 -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+
+        <!-- 広告データ（Google Mobile Ads / AdMob） -->
+        <!-- HealthKitデータは広告に使用しない（App Store 5.1.3準拠） -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeAdvertisingData</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising</string>
+            </array>
+        </dict>
+
+        <!-- 使用状況データ（クラッシュレポート等） -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeCrashData</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+
+    </array>
+
+    <!-- MARK: - アクセスする必要な理由のある API -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+
+        <!-- UserDefaults（BuildingRegistry の永続化・設定保存） -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- CA92.1: アプリ自身の設定・状態の読み書き -->
+                <string>CA92.1</string>
+            </array>
+        </dict>
+
+        <!-- File timestamp（SwiftData / キャッシュ管理） -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- DDA9.1: アプリが作成したファイルのタイムスタンプ -->
+                <string>DDA9.1</string>
+            </array>
+        </dict>
+
+        <!-- System boot time（SpriteKit アニメーション・タイミング） -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- 35F9.1: アプリ内イベントの順序計測 -->
+                <string>35F9.1</string>
+            </array>
+        </dict>
+
+    </array>
+
+</dict>
+</plist>

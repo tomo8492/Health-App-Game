@@ -1,0 +1,8 @@
+■ Ver 1.0.0 — Initial Release
+
+· 5-axis health tracking (Exercise, Diet, Alcohol, Sleep, Lifestyle)
+· Pixel-art city builder (28 building types)
+· HealthKit integration (steps, workouts, sleep)
+· Widget support (small, medium, large)
+· Achievement system (24 badges)
+· Streak tracking

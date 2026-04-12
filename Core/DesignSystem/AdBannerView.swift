@@ -61,7 +61,7 @@ private struct GADBannerRepresentable: UIViewRepresentable {
 
     func makeUIView(context: Context) -> GADBannerView {
         let banner                 = GADBannerView(adSize: GADAdSizeBanner)
-        banner.adUnitID            = AdUnitID.banner
+        banner.adUnitID            = AdConfig.bannerAdUnitID
         banner.rootViewController  = context.coordinator.rootViewController()
         banner.delegate            = context.coordinator
 

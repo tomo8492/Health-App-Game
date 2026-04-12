@@ -1,0 +1,45 @@
+Your healthy habits build a living city.
+
+VITA CITY is a brand-new wellness game where your daily health records directly shape a pixel-art cityscape.
+
+■ Grow Your City Across 5 Health Axes
+
+▸ Exercise
+Log steps and workouts. Hit 10,000 steps and watch runners fill your streets.
+
+▸ Diet
+Rate your 3 daily meals. Healthy eating unlocks organic cafés and farmers markets.
+
+▸ Alcohol
+Moderation makes your central plaza shine. Overdrinking spawns abandoned buildings.
+
+▸ Sleep
+7–9 hours of ideal sleep unlocks sleep clinics and an observatory.
+
+▸ Lifestyle
+Track water intake, stress, and habits to grow lush park areas.
+
+■ Health Tracking That Feels Like a Game
+
+✓ Unlock 28 building types to complete your pixel-art city
+✓ More daily steps = more NPCs (residents) on your streets
+✓ Weather reflects your health points — aim for sunny skies
+✓ Build streaks and collect 24 achievement badges
+✓ Expand your map up to 50×50 tiles — build a true metropolis
+
+■ Full HealthKit Integration
+
+Steps, workouts, and sleep data are fetched automatically. No manual entry needed.
+
+■ Widget Support
+
+See today's health points at a glance on your Home Screen.
+
+■ Premium Version
+
+One-time purchase unlocks: ad-free experience, full history statistics, unlimited data storage, and large widgets.
+
+---
+Privacy commitment:
+· HealthKit data is NEVER used for advertising
+· All data stays on your device — no external servers
