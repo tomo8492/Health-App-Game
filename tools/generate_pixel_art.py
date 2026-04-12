@@ -302,23 +302,25 @@ GRIDS = {
     ],
 
     # ── Library (lifestyle) ───────────────────────────────────────────────
+    # ギリシャ神殿風: 平屋根ペディメント + 2本太柱 + 本棚窓
+    # house との差別化: 三角屋根なし・柱廊・本スパイン
     "library": [
         "................",   #  0
-        ".......RR.......",   #  1
-        "......RRRR......",   #  2
-        ".....RRRRRR.....",   #  3
-        "....RRRRRRRRRR..",   #  4
-        "...RRRRRRRRRRRR.",   #  5
-        "..RRRRRRRRRRRRRR",   #  6
-        "..DDDDDDDDDDDDDD",   #  7
-        "..BDDDDDDDDDDBD.",   #  8  ← columns
-        "..BDDWWDDDWWDBD.",   #  9
-        "..BDDWWDDDWWDBD.",   # 10
-        "..BDDDDDDDDDDBD.",   # 11
-        "..BDDDDFFDDDDBD.",   # 12
-        "..BDDDDFFDDDDBD.",   # 13
-        "..BDDDDFFDDDDBD.",   # 14
-        "..BDDDDFFDDDDBD.",   # 15
+        "................",   #  1
+        "..RRRRRRRRRRRR..",   #  2  ← flat pediment top
+        "..RRRRRRRRRRRR..",   #  3  ← flat pediment
+        "..RRRRRRRRRRRR..",   #  4  ← flat pediment
+        "..XXXXXXXXXXXX..",   #  5  ← white ledge line
+        "..BBDWWWWWWDBB..",   #  6  ← columns(BB) + bookshelf window(W)
+        "..BBDWWWWWWDBB..",   #  7
+        "..BBDWWWWWWDBB..",   #  8
+        "..BBDOXOXOXDBB..",   #  9  ← book spines (O=gold, X=white)
+        "..BBDDDDDDDDBB..",   # 10
+        "..BBDDDFFDDDBB..",   # 11  ← door (center)
+        "..BBDDDFFDDDBB..",   # 12
+        "..BBDDDFFDDDBB..",   # 13
+        "..BBDDDFFDDDBB..",   # 14
+        "..BBDDDDDDDDBB..",   # 15
         "GGGGGGGGGGGGGGGG",   # 16
         "................",   # 17
         "................",   # 18
