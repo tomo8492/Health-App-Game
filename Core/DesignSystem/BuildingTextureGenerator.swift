@@ -1,9 +1,14 @@
 // BuildingTextureGenerator.swift
 // Core/DesignSystem/
 //
-// ゲーム内建物テクスチャをプログラムで生成（PNG アセット不要）
-// UIGraphicsImageRenderer で描画 → SKTexture に変換
-// 建物 ID ごとに固有シルエットを定義
+// ゲーム内建物テクスチャ生成
+// 優先順位:
+//   1. Assets.xcassets の PNG（"building_{archetype}_{axis}" で命名）
+//   2. CoreGraphics プログラム描画（フォールバック）
+//
+// PNG インポート手順:
+//   tools/pixel_art_output/ の PNG を Xcode の Assets.xcassets にドラッグ。
+//   アセット名を "building_house_exercise" のように設定する（_PREVIEW_SHEET.png を除く）。
 
 import SpriteKit
 import UIKit
@@ -23,16 +28,50 @@ enum BuildingTextureGenerator {
 
     /// 建物 ID・軸・レベルからテクスチャを生成（キャッシュ付き）
     static func texture(buildingId: String, axis: CPAxis, level: Int) -> SKTexture {
-        let key = "\(buildingId)_lv\(level)"
+        let key = "\(buildingId)_\(axis.rawValue)_lv\(level)"
         if let cached = cache[key] { return cached }
         let archetype = BuildingArchetype.archetype(for: buildingId)
-        let texture   = generate(archetype: archetype, axis: axis, level: level)
+        let texture: SKTexture
+        if let pixelArt = loadPixelArtTexture(archetype: archetype, axis: axis, level: level) {
+            texture = pixelArt
+        } else {
+            texture = generateProgrammatic(archetype: archetype, axis: axis, level: level)
+        }
         cache[key] = texture
         return texture
     }
 
-    /// レベルバッジ付きテクスチャを生成
-    private static func generate(archetype: BuildingArchetype, axis: CPAxis, level: Int) -> SKTexture {
+    // MARK: - PNG アセット読み込み（優先）
+
+    /// Assets.xcassets から "building_{archetype}_{axis}" を探す
+    private static func loadPixelArtTexture(archetype: BuildingArchetype, axis: CPAxis, level: Int) -> SKTexture? {
+        let imageName = "building_\(archetype.assetName)_\(axis.rawValue)"
+        guard let baseImage = UIImage(named: imageName) else { return nil }
+        let finalImage: UIImage
+        if level >= 2 {
+            finalImage = applyLevelBadge(to: baseImage, level: level, axis: axis)
+        } else {
+            finalImage = baseImage
+        }
+        var texture = SKTexture(image: finalImage)
+        texture.filteringMode = .nearest  // ピクセルアート: 補間なし
+        return texture
+    }
+
+    /// レベルバッジを UIImage にオーバーレイして返す
+    private static func applyLevelBadge(to base: UIImage, level: Int, axis: CPAxis) -> UIImage {
+        let size = CGSize(width: 64, height: 80)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            base.draw(in: CGRect(origin: .zero, size: size))
+            drawLevelBadge(ctx.cgContext, level: level, size: size, color: axis.uiColor)
+        }
+    }
+
+    // MARK: - CoreGraphics フォールバック
+
+    /// レベルバッジ付きテクスチャをプログラムで生成
+    private static func generateProgrammatic(archetype: BuildingArchetype, axis: CPAxis, level: Int) -> SKTexture {
         let size = CGSize(width: 64, height: 80)
         let renderer = UIGraphicsImageRenderer(size: size)
         let image = renderer.image { ctx in
@@ -391,6 +430,25 @@ enum BuildingArchetype {
     case shop, market, cafe
     case tower, clinic
     case library, townhall, monument, house
+
+    /// Assets.xcassets の PNG 名に使われるスネークケース文字列
+    var assetName: String {
+        switch self {
+        case .gym:      return "gym"
+        case .stadium:  return "stadium"
+        case .park:     return "park"
+        case .pool:     return "pool"
+        case .shop:     return "shop"
+        case .market:   return "market"
+        case .cafe:     return "cafe"
+        case .tower:    return "tower"
+        case .clinic:   return "clinic"
+        case .library:  return "library"
+        case .townhall: return "townhall"
+        case .monument: return "monument"
+        case .house:    return "house"
+        }
+    }
 
     static func archetype(for id: String) -> BuildingArchetype {
         switch id {

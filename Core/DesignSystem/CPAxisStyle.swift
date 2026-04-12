@@ -80,4 +80,15 @@ enum CPAxis: CaseIterable {
     func isRecorded(in record: DailyRecord?) -> Bool {
         cp(from: record) > 0
     }
+
+    /// Assets.xcassets の PNG 名・Python スクリプトの軸名と一致させる
+    var rawValue: String {
+        switch self {
+        case .exercise:  return "exercise"
+        case .diet:      return "diet"
+        case .alcohol:   return "alcohol"
+        case .sleep:     return "sleep"
+        case .lifestyle: return "lifestyle"
+        }
+    }
 }
