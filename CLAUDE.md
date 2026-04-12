@@ -10,7 +10,7 @@
 **VITA CITY** — 健康習慣管理 × ドット絵シティビルダーゲームの iOS アプリ
 
 - プラットフォーム：iOS 17.0+ / iPhone 専用 / 縦向き固定
-- 開発スタック：Swift 5.9 / SwiftUI / SpriteKit / SwiftData / HealthKit / StoreKit2
+- 開発スタック：Swift 6.0 / SwiftUI / SpriteKit / SwiftData / HealthKit / StoreKit2
 - ターゲット層：20〜30代・健康意識高め・ゲーム好き
 - 収益モデル：基本無料（バナー広告）+ 買い切りプレミアム課金
 
@@ -168,6 +168,66 @@ let container = ModelContainer(
 - Phase 0〜4 では食事写真機能を一切実装しない
 - UI には「将来実装予定」のプレースホルダーを置かない（機能追加時に実装）
 
+### 13. Xcode プロジェクトファイルの取り扱い
+
+**`.pbxproj` ファイルを直接編集しない。**
+
+- 新規 Swift ファイルは Claude Code で作成した後、**Xcode 上で手動でターゲットに追加**する
+- `.pbxproj` の競合は手動解決のみ（自動マージ禁止）
+- 理由：Claude Code が `.pbxproj` を編集するとプロジェクト破損リスクが高い
+
+---
+
+## XcodeBuildMCP Integration
+
+XcodeBuildMCP（https://github.com/getsentry/XcodeBuildMCP）をインストールすることで  
+Claude Code から Xcode のビルド・テスト・シミュレーター操作を直接実行できる。
+
+### セットアップ手順
+
+```bash
+brew tap getsentry/xcodebuildmcp
+brew install xcodebuildmcp
+claude mcp add --transport stdio XcodeBuildMCP -- npx -y xcodebuildmcp@latest mcp
+```
+
+### MCP で使用可能な主要ツール（59種）
+
+| カテゴリ | ツール例 | 用途 |
+|---|---|---|
+| Build | `simulator/build-and-run` | ビルド + シミュレーター起動 |
+| Screenshot | `simulator/screenshot` | UI の目視確認 |
+| Debug | `debugging/attach` | LLDB アタッチ |
+| UI Automation | `ui-automation/tap`, `ui-automation/swipe` | 自動操作テスト |
+
+### Xcode 26.3 Native MCP Bridge（要 Xcode 26.3+）
+
+```bash
+claude mcp add --transport stdio xcode -- xcrun mcpbridge
+```
+
+追加ツール:
+- `RenderPreview` — SwiftUI Preview を画像として取得（レイアウト確認）
+- `ExecuteSnippet` — Swift コードを REPL 実行
+- `DocumentationSearch` — Apple ドキュメント・WWDC セマンティック検索
+
+### IMPORTANT: MCP ツール使用ルール
+
+- **Xcode ビルドには必ず MCP ツールを使用する**（生の `xcodebuild` コマンド不使用）
+- UI 変更後は `RenderPreview` または `simulator/screenshot` で目視確認してから完了報告する
+
+---
+
+## Agent Skills
+
+プロジェクトローカルスキルが `.claude/skills/` に配置されている：
+
+| スキル | 用途 |
+|---|---|
+| `ios-architect` | レイヤー違反・actor isolation・@Observable 設計レビュー |
+| `ios-testing` | CPPointCalculator・StreakManager の Swift Testing 作成 |
+| `swift-reviewer` | retain cycle・Swift 6 concurrency・SwiftLint 準拠チェック |
+
 ---
 
 ## Testing
@@ -197,6 +257,18 @@ xcodebuild test -scheme VitaCity -destination 'platform=iOS Simulator,name=iPhon
 | **Phase 4** | 12〜16週間 | 実績・バッジ・通知・WidgetKit（小サイズ無料/中大サイズプレミアム）|
 | **Phase 5** | 16〜20週間 | StoreKit2課金・プレミアム機能・食事写真（Vision）・Fastlane CI/CD |
 | **Phase 6** | 20〜24週間 | App Store 審査・英語ローカライズ・パフォーマンス最適化・正式リリース |
+
+---
+
+## Known Issues
+
+実装中に発見した iOS バージョン固有の問題・注意点（随時追記）：
+
+| 発見日 | 問題 | 影響範囲 | 対処法 |
+|---|---|---|---|
+| 2026-04 | `SKNode` の `didMove(to:)` はタブ切り替えで再呼び出しされる | `CityScene.swift` | `isSetupComplete` フラグで二重セットアップを防ぐ |
+| 2026-04 | Swift 6: `weak` は value type（struct）に使用不可 | `NPCNode.swift` | `ParsedMap` はstructなので `weak` を削除 |
+| 2026-04 | `@MainActor` は Protocol と実装の両方に必要 | Repository・Service プロトコル全般 | protocol 宣言に `@MainActor` を追加 |
 
 ---
 
