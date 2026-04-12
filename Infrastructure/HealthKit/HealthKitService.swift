@@ -101,9 +101,12 @@ final class HealthKitService: HealthKitServiceProtocol {
 
     func fetchLastNightSleep() async throws -> Double {
         guard let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return 0 }
-        let yesterday  = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-        let sleepStart = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: yesterday)!
-        let wakeEnd    = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())!
+        let calendar = Calendar.current
+        guard
+            let yesterday  = calendar.date(byAdding: .day, value: -1, to: Date()),
+            let sleepStart = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: yesterday),
+            let wakeEnd    = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date())
+        else { return 0 }
         let predicate  = HKQuery.predicateForSamples(withStart: sleepStart, end: wakeEnd, options: .strictStartDate)
 
         return try await withCheckedThrowingContinuation { continuation in

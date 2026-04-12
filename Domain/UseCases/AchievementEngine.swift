@@ -135,6 +135,50 @@ final class AchievementEngine {
     var achievements: [Achievement] = AchievementCatalog.all
     var recentlyUnlocked: Achievement? = nil  // バナー表示用
 
+    // MARK: - Persistence Keys
+
+    private enum Keys {
+        static let unlockedIDs  = "AchievementEngine.unlockedIDs"
+        static let unlockedDates = "AchievementEngine.unlockedDates"
+    }
+
+    // MARK: - Init（永続化データを復元）
+
+    init() {
+        loadFromUserDefaults()
+    }
+
+    // MARK: - Load
+
+    private func loadFromUserDefaults() {
+        let defaults     = UserDefaults.standard
+        let savedIDs     = defaults.stringArray(forKey: Keys.unlockedIDs) ?? []
+        let savedDates   = defaults.dictionary(forKey: Keys.unlockedDates) as? [String: Double] ?? [:]
+
+        for i in achievements.indices {
+            if savedIDs.contains(achievements[i].id) {
+                achievements[i].isUnlocked = true
+                if let ts = savedDates[achievements[i].id] {
+                    achievements[i].unlockedAt = Date(timeIntervalSince1970: ts)
+                }
+            }
+        }
+    }
+
+    // MARK: - Save
+
+    private func save() {
+        let unlockedIDs = achievements.filter(\.isUnlocked).map(\.id)
+        var dateDictionary: [String: Double] = [:]
+        for a in achievements where a.isUnlocked {
+            if let date = a.unlockedAt {
+                dateDictionary[a.id] = date.timeIntervalSince1970
+            }
+        }
+        UserDefaults.standard.set(unlockedIDs,    forKey: Keys.unlockedIDs)
+        UserDefaults.standard.set(dateDictionary, forKey: Keys.unlockedDates)
+    }
+
     // MARK: - Check（記録保存後に呼び出す）
 
     func checkAchievements(
@@ -144,6 +188,7 @@ final class AchievementEngine {
         todayRecord:  DailyRecord?,
         allRecords:   [DailyRecord]
     ) {
+        var didUnlock = false
         for i in achievements.indices where !achievements[i].isUnlocked {
             let (unlocked, progress) = evaluate(
                 condition:   achievements[i].condition,
@@ -158,8 +203,10 @@ final class AchievementEngine {
                 achievements[i].isUnlocked = true
                 achievements[i].unlockedAt = Date()
                 recentlyUnlocked = achievements[i]
+                didUnlock = true
             }
         }
+        if didUnlock { save() }
     }
 
     // MARK: - Evaluate（純粋関数的ロジック）

@@ -45,8 +45,8 @@ final class StatisticsViewModel {
     // MARK: - Derived: Period Records
 
     var periodRecords: [DailyRecord] {
-        let days = selectedPeriod == .week ? 7 : 30
-        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
+        let days   = selectedPeriod == .week ? 7 : 30
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         return records
             .filter { $0.date >= cutoff && !$0.isArchived }
             .sorted { $0.date < $1.date }
