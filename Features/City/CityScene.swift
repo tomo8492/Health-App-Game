@@ -133,34 +133,31 @@ final class CityScene: SKScene {
 
         // アイソメトリックひし形パス
         let path = CGMutablePath()
-        path.move(to:    CGPoint(x: 0,        y: tileH / 2))
-        path.addLine(to: CGPoint(x: tileW / 2, y: 0))
-        path.addLine(to: CGPoint(x: 0,        y: -tileH / 2))
+        path.move(to:    CGPoint(x: 0,          y: tileH / 2))
+        path.addLine(to: CGPoint(x: tileW / 2,  y: 0))
+        path.addLine(to: CGPoint(x: 0,          y: -tileH / 2))
         path.addLine(to: CGPoint(x: -tileW / 2, y: 0))
         path.closeSubpath()
         node.path = path
 
-        // タイルの種類で色を決定
-        node.fillColor   = tileColor(row: row, col: col, mapSize: parsedMap?.width ?? 20)
-        node.strokeColor = UIColor.black.withAlphaComponent(0.08)
-        node.lineWidth   = 0.5
+        // IsoTileTextureGenerator でテクスチャを適用（SKShapeNode.fillTexture で自動クリッピング）
+        let style = tileStyle(row: row, col: col, mapSize: parsedMap?.width ?? 20)
+        node.fillTexture = IsoTileTextureGenerator.texture(for: style, tileW: tileW, tileH: tileH)
+        node.fillColor   = .white   // fillTexture 使用時は white が必要（乗算ブレンド）
+        node.strokeColor = UIColor.black.withAlphaComponent(0.12)
+        node.lineWidth   = 0.6
         node.position    = pos
 
         return node
     }
 
-    private func tileColor(row: Int, col: Int, mapSize: Int) -> UIColor {
+    private func tileStyle(row: Int, col: Int, mapSize: Int) -> TileStyle {
         let center = mapSize / 2
-        let distFromCenter = abs(row - center) + abs(col - center)
-
-        // 中央は明るい芝生・外側は暗い草地
-        if distFromCenter <= 2 {
-            return UIColor(red: 0.52, green: 0.78, blue: 0.38, alpha: 1)   // 明るい緑（中央広場）
-        } else if distFromCenter <= 5 {
-            return UIColor(red: 0.45, green: 0.72, blue: 0.32, alpha: 1)   // 中間
-        } else {
-            return UIColor(red: 0.38, green: 0.62, blue: 0.28, alpha: 1)   // 暗い草地
-        }
+        let dist   = abs(row - center) + abs(col - center)
+        if dist <= 2  { return .plaza        }   // 中央広場（石畳）
+        if dist <= 6  { return .grassBright  }   // 内側（明るい芝生）
+        if dist <= 12 { return .grassMid     }   // 中間
+        return .grassDark                         // 外周（暗い草地）
     }
 
     /// 道路レンダリング（市庁舎から十字）
@@ -189,15 +186,16 @@ final class CityScene: SKScene {
 
     private func makeRoadTile(pos: CGPoint, tileW: CGFloat, tileH: CGFloat) -> SKShapeNode {
         let path = CGMutablePath()
-        path.move(to:    CGPoint(x: 0,         y: tileH / 2))
+        path.move(to:    CGPoint(x: 0,          y: tileH / 2))
         path.addLine(to: CGPoint(x: tileW / 2,  y: 0))
-        path.addLine(to: CGPoint(x: 0,         y: -tileH / 2))
+        path.addLine(to: CGPoint(x: 0,          y: -tileH / 2))
         path.addLine(to: CGPoint(x: -tileW / 2, y: 0))
         path.closeSubpath()
 
         let node = SKShapeNode(path: path)
-        node.fillColor   = UIColor(red: 0.7, green: 0.65, blue: 0.55, alpha: 1)  // 砂利道
-        node.strokeColor = UIColor(red: 0.6, green: 0.55, blue: 0.45, alpha: 0.5)
+        node.fillTexture = IsoTileTextureGenerator.texture(for: .road, tileW: tileW, tileH: tileH)
+        node.fillColor   = .white
+        node.strokeColor = UIColor.black.withAlphaComponent(0.10)
         node.lineWidth   = 0.5
         node.position    = pos
         return node
