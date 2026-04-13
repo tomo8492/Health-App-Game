@@ -131,16 +131,59 @@ final class NPCNode: SKSpriteNode {
     func setMood(cpLevel: Int) {
         let targetAlpha: CGFloat = cpLevel > 200 ? 1.0 : cpLevel > 100 ? 0.8 : 0.6
         run(SKAction.fadeAlpha(to: targetAlpha, duration: 0.5))
-        // 活発度: 高 CP で歩行速度 UP
+        // 活発度: 高 CP で歩行速度 UP + エモート表示
         if cpLevel > 300 {
             let pulse = SKAction.sequence([
                 SKAction.scale(to: 1.05, duration: 0.3),
                 SKAction.scale(to: 1.0, duration: 0.3)
             ])
             run(SKAction.repeatForever(pulse), withKey: "pulse")
+            // 8% の確率でエモートを表示
+            if Int.random(in: 0..<12) == 0 {
+                let emotes = ["♪", "★", "♡", "!"]
+                showEmote(emotes.randomElement() ?? "♪")
+            }
         } else {
             removeAction(forKey: "pulse")
             run(SKAction.scale(to: 1.0, duration: 0.2))
         }
+    }
+
+    // MARK: - エモート吹き出し
+
+    /// NPC の頭上に小さなエモートバブルを表示する（1.5s 後にフェードアウト）
+    func showEmote(_ symbol: String) {
+        // 二重表示防止
+        guard childNode(withName: "emote") == nil else { return }
+
+        // 背景円
+        let bg = SKShapeNode(circleOfRadius: 9)
+        bg.fillColor   = .white
+        bg.strokeColor = UIColor(white: 0.65, alpha: 0.9)
+        bg.lineWidth   = 0.6
+        bg.position    = CGPoint(x: 0, y: 38)   // NPC 頭上
+        bg.zPosition   = 200
+        bg.name        = "emote"
+        bg.alpha       = 0
+        addChild(bg)
+
+        // シンボルラベル
+        let label = SKLabelNode(text: symbol)
+        label.fontSize                  = 11
+        label.fontName                  = "Helvetica-Bold"
+        label.verticalAlignmentMode     = .center
+        label.horizontalAlignmentMode   = .center
+        bg.addChild(label)
+
+        // アニメーション: フェードイン → ホールド → 上昇しながらフェードアウト
+        bg.run(SKAction.sequence([
+            SKAction.fadeIn(withDuration: 0.15),
+            SKAction.wait(forDuration: 1.2),
+            SKAction.group([
+                SKAction.moveBy(x: 0, y: 8, duration: 0.45),
+                SKAction.fadeOut(withDuration: 0.45)
+            ]),
+            SKAction.removeFromParent()
+        ]))
     }
 }

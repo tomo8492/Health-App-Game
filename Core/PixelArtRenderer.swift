@@ -29,6 +29,13 @@ extension UIColor {
         self.init(red: CGFloat(r)/255, green: CGFloat(g)/255,
                   blue: CGFloat(b)/255, alpha: CGFloat(a)/255)
     }
+
+    /// 明度を factor 倍する（0.0=黒, 1.0=変化なし）
+    func darkened(by factor: CGFloat = 0.72) -> UIColor {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        return UIColor(red: r * factor, green: g * factor, blue: b * factor, alpha: a)
+    }
 }
 
 // MARK: - NPC Type
@@ -91,7 +98,7 @@ extension BuildingVisualConfig {
         // ── 生活習慣軸 ──────────────────────────────────────────────
         case "B023": return .init(topColor: UIColor(hex:"B3E5FC"), leftColor: UIColor(hex:"4FC3F7"), rightColor: UIColor(hex:"0277BD"), windowColor: UIColor(hex:"FFFFFF"), accentColor: UIColor(hex:"00BCD4"), floors: 1, roofStyle:.flat)
         case "B024": return .init(topColor: UIColor(hex:"E8F5E9"), leftColor: UIColor(hex:"81C784"), rightColor: UIColor(hex:"1B5E20"), windowColor: UIColor(hex:"E3F2FD"), accentColor: UIColor(hex:"4CAF50"), floors: min(lv+2,5), roofStyle:.flat)
-        case "B025": return .init(topColor: UIColor(hex:"F5F5DC"), leftColor: UIColor(hex:"FFFDE7"), rightColor: UIColor(hex:"D4D490"), windowColor: UIColor(hex:"B3E5FC"), accentColor: UIColor(hex:"FFD700"), floors: min(lv+2,5), roofStyle:.pitched)
+        case "B025": return .init(topColor: UIColor(hex:"F5F5DC"), leftColor: UIColor(hex:"D9C87A"), rightColor: UIColor(hex:"B8A040"), windowColor: UIColor(hex:"B3E5FC"), accentColor: UIColor(hex:"FFD700"), floors: min(lv+2,5), roofStyle:.pitched)
         case "B026": return .init(topColor: UIColor(hex:"FFF9C4"), leftColor: UIColor(hex:"FDD835"), rightColor: UIColor(hex:"F57F17"), windowColor: UIColor(hex:"FFFFFF"), accentColor: UIColor(hex:"FF9800"), floors: min(lv+3,5), roofStyle:.flat)
         case "B027": return .init(topColor: UIColor(hex:"F9FBE7"), leftColor: UIColor(hex:"C5E1A5"), rightColor: UIColor(hex:"558B2F"), windowColor: UIColor(hex:"DCEDC8"), accentColor: UIColor(hex:"FFA000"), floors: 2, roofStyle:.flat)
         case "B028": return .init(topColor: UIColor(hex:"D7CCC8"), leftColor: UIColor(hex:"BCAAA4"), rightColor: UIColor(hex:"6D4C41"), windowColor: UIColor(hex:"FFF9C4"), accentColor: UIColor(hex:"795548"), floors: 2, roofStyle:.flat)
@@ -227,7 +234,7 @@ enum PixelArtRenderer {
         }
     }
     static func roadTile() -> SKTexture {
-        cached("road") { isoTile(top: UIColor(hex:"B0A890"), shadow: UIColor(hex:"706850"), grass: false) }
+        cached("road") { isoTile(top: UIColor(hex:"B0A890"), shadow: UIColor(hex:"706850"), grass: false, roadMarkings: true) }
     }
     static func sidewalkTile() -> SKTexture {
         cached("sidewalk") { isoTile(top: UIColor(hex:"D8D0B8"), shadow: UIColor(hex:"989078"), grass: false) }
@@ -244,7 +251,21 @@ enum PixelArtRenderer {
     static func buildingTexture(id: String, level: Int) -> SKTexture {
         cached("bld_\(id)_lv\(level)") {
             let cfg = BuildingVisualConfig.make(id: id, level: level)
-            return isoBuilding(config: cfg)
+            return isoBuilding(config: cfg, id: id, level: level)
+        }
+    }
+
+    // MARK: - Building Animation (flag wave for B025)
+
+    /// B025（市庁舎）など旗を持つ建物の 4 フレームアニメーションテクスチャを返す
+    /// それ以外の建物は nil
+    static func buildingAnimationTextures(id: String, level: Int) -> [SKTexture]? {
+        guard id == "B025" else { return nil }
+        return (0..<4).map { frame in
+            cached("bld_\(id)_lv\(level)_f\(frame)") {
+                let cfg = BuildingVisualConfig.make(id: id, level: level)
+                return isoBuilding(config: cfg, id: id, level: level, flagFrame: frame)
+            }
         }
     }
 
@@ -268,11 +289,65 @@ enum PixelArtRenderer {
         cached("tree\(variant)") { treeSprite(variant: variant) }
     }
 
+    // MARK: - Street Decorations
+
+    static func streetLampTexture() -> SKTexture {
+        cached("streetlamp") {
+            let w: CGFloat = 8, h: CGFloat = 22
+            let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+                let cg = ctx.cgContext
+                // ポール
+                cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+                cg.fill(CGRect(x: 3, y: 7, width: 2, height: 15))
+                // アーム（L字）
+                cg.fill(CGRect(x: 1, y: 7, width: 4, height: 2))
+                // ランプヘッド
+                cg.setFillColor(UIColor(hex: "FFF9C4").cgColor)
+                cg.fillEllipse(in: CGRect(x: 0, y: 2, width: 6, height: 6))
+                // ランプグロー（外縁）
+                cg.setStrokeColor(UIColor(hex: "F9A825").cgColor)
+                cg.setLineWidth(0.6)
+                cg.strokeEllipse(in: CGRect(x: 0, y: 2, width: 6, height: 6))
+                // ランプ中心ハイライト
+                cg.setFillColor(UIColor.white.withAlphaComponent(0.6).cgColor)
+                cg.fillEllipse(in: CGRect(x: 1.5, y: 3.5, width: 2, height: 2))
+                // ポールベース
+                cg.setFillColor(UIColor(hex: "4E342E").cgColor)
+                cg.fill(CGRect(x: 2, y: 20, width: 4, height: 2))
+            }
+            let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+        }
+    }
+
+    static func benchTexture() -> SKTexture {
+        cached("bench") {
+            let w: CGFloat = 16, h: CGFloat = 12
+            let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+                let cg = ctx.cgContext
+                // 座面
+                cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
+                cg.fill(CGRect(x: 1, y: 4, width: 14, height: 3))
+                // 背もたれ
+                cg.setFillColor(UIColor(hex: "795548").cgColor)
+                cg.fill(CGRect(x: 1, y: 1, width: 14, height: 2))
+                // 足（4本）
+                cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+                cg.fill(CGRect(x: 2,  y: 7, width: 2, height: 5))
+                cg.fill(CGRect(x: 12, y: 7, width: 2, height: 5))
+                // アウトライン
+                cg.setStrokeColor(UIColor.black.withAlphaComponent(0.25).cgColor)
+                cg.setLineWidth(0.4)
+                cg.stroke(CGRect(x: 1, y: 1, width: 14, height: 6))
+            }
+            let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+        }
+    }
+
     // ────────────────────────────────────────────────────────────────
     // MARK: - Private: Iso Tile
     // ────────────────────────────────────────────────────────────────
 
-    private static func isoTile(top: UIColor, shadow: UIColor, grass: Bool) -> SKTexture {
+    private static func isoTile(top: UIColor, shadow: UIColor, grass: Bool, roadMarkings: Bool = false) -> SKTexture {
         let w = tileW, h = tileH
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
@@ -297,6 +372,20 @@ enum PixelArtRenderer {
                     }
                 }
             }
+            // 道路センターライン（破線）
+            if roadMarkings {
+                cg.setFillColor(UIColor(hex: "F5E6A3").withAlphaComponent(0.5).cgColor)
+                // アイソメ中心を斜めに走る破線（4px on / 4px off）
+                var step: CGFloat = 0
+                while step < w {
+                    let x = step
+                    let y = h/2 - (x - w/2) * (h/2) / (w/2)
+                    if Int(step / 4) % 2 == 0 {
+                        cg.fill(CGRect(x: x, y: y - 0.75, width: 3, height: 1.5))
+                    }
+                    step += 2
+                }
+            }
             // アウトライン
             UIColor.black.withAlphaComponent(0.18).setStroke()
             diamond.lineWidth = 0.5; diamond.stroke()
@@ -318,7 +407,12 @@ enum PixelArtRenderer {
     // 座標系: UIKit Y-down, baseY = 画像の一番下 = tileH + buildH
     // ────────────────────────────────────────────────────────────────
 
-    private static func isoBuilding(config: BuildingVisualConfig) -> SKTexture {
+    private static func isoBuilding(
+        config: BuildingVisualConfig,
+        id: String = "",
+        level: Int = 1,
+        flagFrame: Int = 0
+    ) -> SKTexture {
         let w = tileW
         let bH = CGFloat(config.floors) * floorH
         let totalH = tileH + bH
@@ -336,8 +430,10 @@ enum PixelArtRenderer {
             lp.close()
             config.leftColor.setFill(); lp.fill()
             // 窓（左面）
-            drawWindows(cg: cg, isLeft: true, bH: bH, baseY: baseY,
-                        w: w, config: config)
+            drawWindows(cg: cg, isLeft: true, bH: bH, baseY: baseY, w: w, config: config)
+            // ドア・看板（左面グラウンドフロア）
+            drawDoor(cg: cg, baseY: baseY, w: w, config: config)
+            drawBuildingSign(cg: cg, baseY: baseY, w: w, config: config)
 
             // ── 右面 ──────────────────────────────────────────────
             let rp = UIBezierPath()
@@ -348,8 +444,10 @@ enum PixelArtRenderer {
             rp.close()
             config.rightColor.setFill(); rp.fill()
             // 窓（右面）
-            drawWindows(cg: cg, isLeft: false, bH: bH, baseY: baseY,
-                        w: w, config: config)
+            drawWindows(cg: cg, isLeft: false, bH: bH, baseY: baseY, w: w, config: config)
+
+            // ── フロア区切りライン ──────────────────────────────────
+            drawFloorBeltLines(cg: cg, bH: bH, baseY: baseY, w: w, floors: config.floors)
 
             // ── 屋根 ──────────────────────────────────────────────
             let roofBaseY = baseY - tileH/2 - bH
@@ -366,6 +464,8 @@ enum PixelArtRenderer {
                 UIColor.black.withAlphaComponent(0.08).setFill(); tp.fill()
                 UIColor.black.withAlphaComponent(0.25).setStroke()
                 tp.lineWidth = 0.6; tp.stroke()
+                // 屋根と壁の境界にディザリング（グラデーション効果）
+                drawRoofEdgeDither(cg: cg, roofBaseY: roofBaseY, w: w, config: config)
 
             case .pitched:
                 // 切妻屋根
@@ -406,6 +506,10 @@ enum PixelArtRenderer {
             UIColor.black.withAlphaComponent(0.3).setStroke()
             lp.lineWidth = 0.8; lp.stroke()
             rp.lineWidth = 0.8; rp.stroke()
+
+            // ── 屋根デコレーション（アウトラインの上に描画）──────────
+            drawRoofDecoration(cg: cg, id: id, config: config,
+                               roofBaseY: roofBaseY, w: w, level: level, flagFrame: flagFrame)
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
@@ -414,11 +518,12 @@ enum PixelArtRenderer {
         cg: CGContext, isLeft: Bool, bH: CGFloat, baseY: CGFloat,
         w: CGFloat, config: BuildingVisualConfig
     ) {
-        guard config.floors >= 2 else { return }
         let wW: CGFloat = 5, wH: CGFloat = 6
         let fH = floorH
         let cols = 2
-        for floor in 0..<config.floors {
+        // 1階建てでも窓を表示（ただし上層階のみスキップ）
+        let floorsToDraw = max(config.floors, 1)
+        for floor in 0..<floorsToDraw {
             let fy = baseY - bH + CGFloat(floor) * fH + 4
             for col in 0..<cols {
                 let wx: CGFloat
@@ -429,8 +534,177 @@ enum PixelArtRenderer {
                 }
                 let r = CGRect(x: wx, y: fy, width: wW, height: wH)
                 cg.setFillColor(config.windowColor.cgColor); cg.fill(r)
-                cg.setStrokeColor(UIColor.black.withAlphaComponent(0.25).cgColor)
-                cg.setLineWidth(0.4); cg.stroke(r)
+                // 窓枠（1px フレーム）
+                cg.setStrokeColor(UIColor.black.withAlphaComponent(0.3).cgColor)
+                cg.setLineWidth(0.5); cg.stroke(r)
+                // 窓ガラスのハイライト（左上コーナー）
+                cg.setFillColor(UIColor.white.withAlphaComponent(0.3).cgColor)
+                cg.fill(CGRect(x: wx, y: fy, width: 2, height: 2))
+            }
+        }
+    }
+
+    // MARK: - Building Detail Helpers
+
+    /// ドア（左面グラウンドフロア中央）
+    private static func drawDoor(
+        cg: CGContext, baseY: CGFloat, w: CGFloat, config: BuildingVisualConfig
+    ) {
+        let dW: CGFloat = 5, dH: CGFloat = 9
+        // 左面のグラウンドフロア中央付近（X: ~w/8）
+        let dx: CGFloat = w/8 - 1
+        let dy = baseY - dH - 1
+        // ドア枠（左色を暗くした色）
+        cg.setFillColor(config.leftColor.darkened(by: 0.65).cgColor)
+        cg.fill(CGRect(x: dx - 1, y: dy - 1, width: dW + 2, height: dH + 2))
+        // ドアパネル（アクセント色）
+        cg.setFillColor(config.accentColor.withAlphaComponent(0.7).cgColor)
+        cg.fill(CGRect(x: dx, y: dy, width: dW, height: dH))
+        // ドアノブ（小さな点）
+        cg.setFillColor(UIColor(hex: "FFD700").withAlphaComponent(0.8).cgColor)
+        cg.fill(CGRect(x: dx + dW - 2, y: dy + dH/2, width: 1.5, height: 1.5))
+        // ステップ（ドア下）
+        cg.setFillColor(config.leftColor.darkened(by: 0.55).cgColor)
+        cg.fill(CGRect(x: dx - 1, y: baseY - 2, width: dW + 2, height: 2))
+    }
+
+    /// 看板（左面グラウンドフロア上部）
+    private static func drawBuildingSign(
+        cg: CGContext, baseY: CGFloat, w: CGFloat, config: BuildingVisualConfig
+    ) {
+        let sw: CGFloat = 12, sh: CGFloat = 5
+        let sx: CGFloat = 2
+        let sy = baseY - floorH + 3   // グラウンドフロア上部
+        // 看板背景（アクセント色）
+        cg.setFillColor(config.accentColor.cgColor)
+        cg.fill(CGRect(x: sx, y: sy, width: sw, height: sh))
+        // 看板テキスト（2本のライン）
+        cg.setFillColor(UIColor.white.withAlphaComponent(0.55).cgColor)
+        cg.fill(CGRect(x: sx + 1, y: sy + 1, width: sw - 3, height: 1))
+        cg.fill(CGRect(x: sx + 1, y: sy + 3, width: sw - 5, height: 1))
+        // 看板枠
+        cg.setStrokeColor(UIColor.black.withAlphaComponent(0.28).cgColor)
+        cg.setLineWidth(0.4)
+        cg.stroke(CGRect(x: sx, y: sy, width: sw, height: sh))
+    }
+
+    /// フロア区切りライン（各階の境界に細いラインを入れる）
+    private static func drawFloorBeltLines(
+        cg: CGContext, bH: CGFloat, baseY: CGFloat, w: CGFloat, floors: Int
+    ) {
+        guard floors >= 2 else { return }
+        cg.setStrokeColor(UIColor.black.withAlphaComponent(0.15).cgColor)
+        cg.setLineWidth(0.7)
+        for floor in 1..<floors {
+            let y = baseY - CGFloat(floor) * floorH
+            // 左面のフロアライン（アイソメに沿った斜線）
+            let leftRatio = CGFloat(floor) / CGFloat(floors)
+            cg.move(to: CGPoint(x: 0,   y: y - (tileH/2) * leftRatio))
+            cg.addLine(to: CGPoint(x: w/2, y: y))
+            cg.strokePath()
+            // 右面のフロアライン
+            cg.move(to: CGPoint(x: w/2, y: y))
+            cg.addLine(to: CGPoint(x: w,   y: y - (tileH/2) * leftRatio))
+            cg.strokePath()
+        }
+    }
+
+    /// 屋根エッジのディザリング（屋根と壁の境界をなめらかに見せる）
+    private static func drawRoofEdgeDither(
+        cg: CGContext, roofBaseY: CGFloat, w: CGFloat, config: BuildingVisualConfig
+    ) {
+        cg.setFillColor(config.topColor.withAlphaComponent(0.22).cgColor)
+        var x: CGFloat = 0
+        while x < w/2 {
+            let y = roofBaseY + (w/2 - x) * (tileH/2) / (w/2)
+            if Int(x) % 2 == 0 {
+                cg.fill(CGRect(x: x, y: y - 1, width: 1, height: 1))
+            }
+            x += 1
+        }
+    }
+
+    /// 屋根デコレーション（建物 ID ごとに異なるシルエット追加）
+    private static func drawRoofDecoration(
+        cg: CGContext, id: String, config: BuildingVisualConfig,
+        roofBaseY: CGFloat, w: CGFloat, level: Int, flagFrame: Int = 0
+    ) {
+        let ridgeY = roofBaseY - tileH/2
+
+        switch id {
+        case "B025":  // 市庁舎 — 旗ポール + 三色旗（4フレームで揺れる）
+            let px = w/2 + 3
+            let py = ridgeY - 13
+            // ポール
+            cg.setFillColor(UIColor(hex: "8B7536").cgColor)
+            cg.fill(CGRect(x: px, y: py, width: 2, height: 13))
+            // 旗（flagFrame で x オフセットを変化させて揺らす）
+            let wave = CGFloat(flagFrame % 2) * 1.0
+            cg.setFillColor(UIColor(hex: "E63946").cgColor)
+            cg.fill(CGRect(x: px+2, y: py,         width: 7-wave, height: 3))
+            cg.setFillColor(UIColor(hex: "FFFFFF").cgColor)
+            cg.fill(CGRect(x: px+2, y: py+3,       width: 7,      height: 2))
+            cg.setFillColor(UIColor(hex: "4A90D9").cgColor)
+            cg.fill(CGRect(x: px+2, y: py+5,       width: 7+wave, height: 3))
+
+        case "B026":  // カレンダータワー — 時計
+            let cx = w/2 - 5, cy = ridgeY - 10
+            cg.setFillColor(UIColor(hex: "FFFDE7").cgColor)
+            cg.fillEllipse(in: CGRect(x: cx, y: cy, width: 9, height: 9))
+            cg.setStrokeColor(UIColor.black.withAlphaComponent(0.5).cgColor)
+            cg.setLineWidth(0.5)
+            cg.strokeEllipse(in: CGRect(x: cx, y: cy, width: 9, height: 9))
+            // 時計の針（12時 + 3時）
+            cg.setStrokeColor(UIColor.black.withAlphaComponent(0.65).cgColor)
+            cg.setLineWidth(0.7)
+            cg.move(to: CGPoint(x: cx+4.5, y: cy+4.5))
+            cg.addLine(to: CGPoint(x: cx+4.5, y: cy+1)); cg.strokePath()
+            cg.move(to: CGPoint(x: cx+4.5, y: cy+4.5))
+            cg.addLine(to: CGPoint(x: cx+8,   y: cy+4.5)); cg.strokePath()
+
+        case "B001", "B004", "B017":  // ジム / プール / 睡眠クリニック — アンテナ
+            cg.setFillColor(UIColor(hex: "9E9E9E").cgColor)
+            cg.fill(CGRect(x: w/2 + 2, y: ridgeY - 10, width: 2, height: 10))
+            cg.setFillColor(UIColor(hex: "F44336").cgColor)
+            cg.fillEllipse(in: CGRect(x: w/2 + 1.5, y: ridgeY - 12, width: 3, height: 3))
+
+        case "B002":  // スタジアム — フラッグ群
+            for i in 0..<3 {
+                let fx = w/4 + CGFloat(i) * 8
+                cg.setFillColor(UIColor(hex: "FF5722").cgColor)
+                cg.fill(CGRect(x: fx, y: ridgeY - 8, width: 2, height: 8))
+                let flagColors = ["FF5722", "4CAF50", "2196F3"]
+                cg.setFillColor(UIColor(hex: flagColors[i]).cgColor)
+                cg.fill(CGRect(x: fx+2, y: ridgeY - 8, width: 4, height: 3))
+            }
+
+        case "B018":  // 天文台 — 望遠鏡スリット
+            cg.setFillColor(UIColor.black.withAlphaComponent(0.4).cgColor)
+            cg.fill(CGRect(x: w/2 - 2, y: ridgeY - 16, width: 4, height: 10))
+
+        case "B007", "B019", "B028":  // カフェ / 図書館 / 公民館 — 煙突
+            let chx = w/4
+            cg.setFillColor(config.rightColor.cgColor)
+            cg.fill(CGRect(x: chx, y: ridgeY - 8, width: 5, height: 8))
+            cg.setFillColor(UIColor(hex: "546E7A").cgColor)
+            cg.fill(CGRect(x: chx - 1, y: ridgeY - 8, width: 7, height: 2))
+            // 煙
+            cg.setFillColor(UIColor.white.withAlphaComponent(0.25).cgColor)
+            cg.fillEllipse(in: CGRect(x: chx, y: ridgeY - 13, width: 4, height: 4))
+
+        default: break
+        }
+
+        // レベル5 金色トリム（屋根エッジに点線）
+        if level >= 5 {
+            cg.setFillColor(UIColor(hex: "FFD700").withAlphaComponent(0.55).cgColor)
+            var gx: CGFloat = 0
+            while gx < w {
+                let gy = roofBaseY + (w/2 - gx) * (tileH/2) / (w/2)
+                if Int(gx / 3) % 2 == 0 {
+                    cg.fill(CGRect(x: gx, y: gy - 1, width: 2, height: 1))
+                }
+                gx += 3
             }
         }
     }

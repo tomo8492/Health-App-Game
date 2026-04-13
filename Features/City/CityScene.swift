@@ -138,6 +138,50 @@ final class CityScene: SKScene {
 
         // 木・装飾
         placeTreesAround(map: map, cx: cx, cy: cy)
+        // 街路灯・ベンチ
+        placeStreetDecorations(map: map)
+    }
+
+    // MARK: - 街路灯・ベンチ配置（道路沿い・歩道沿い）
+
+    private func placeStreetDecorations(map: ParsedMap) {
+        let lampTex  = PixelArtRenderer.streetLampTexture()
+        let benchTex = PixelArtRenderer.benchTexture()
+        var lampCount = 0
+
+        for row in 0..<map.height {
+            for col in 0..<map.width {
+                guard row < map.tiles.count, col < map.tiles[row].count else { continue }
+                let tile = map.tiles[row][col]
+                let pos = TiledMapParser.isoToScreen(
+                    x: col, y: row,
+                    tileWidth:  CGFloat(map.tileWidth),
+                    tileHeight: CGFloat(map.tileHeight)
+                )
+                let z = CGFloat(col + row) * 0.1
+
+                // 街路灯: 道路タイル (gid==2) で 4 マスごと、最大 24 本
+                if tile.gid == 2 && (col + row) % 4 == 0 && lampCount < 24 {
+                    let lamp = SKSpriteNode(texture: lampTex,
+                                           size: CGSize(width: 8, height: 22))
+                    lamp.position    = CGPoint(x: pos.x + 4, y: pos.y + 4)
+                    lamp.anchorPoint = CGPoint(x: 0.5, y: 0.0)
+                    lamp.zPosition   = z + 0.03
+                    buildingLayer.addChild(lamp)
+                    lampCount += 1
+                }
+
+                // ベンチ: 歩道タイル (gid==3) で 6 マスごと
+                if tile.gid == 3 && (col + row) % 6 == 0 {
+                    let bench = SKSpriteNode(texture: benchTex,
+                                            size: CGSize(width: 16, height: 12))
+                    bench.position    = CGPoint(x: pos.x, y: pos.y + 2)
+                    bench.anchorPoint = CGPoint(x: 0.5, y: 0.0)
+                    bench.zPosition   = z + 0.01
+                    buildingLayer.addChild(bench)
+                }
+            }
+        }
     }
 
     private func placeTreesAround(map: ParsedMap, cx: Int, cy: Int) {

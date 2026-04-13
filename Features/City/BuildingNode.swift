@@ -119,12 +119,17 @@ final class BuildingNode: SKSpriteNode {
     // MARK: - アイドルアニメーション
 
     func playIdleAnimation() {
-        // 建物ごとの微細な揺れ（稼働感を演出）
-        let bobUp   = SKAction.moveBy(x: 0, y: 1.5, duration: 1.4)
-        let bobDown = SKAction.moveBy(x: 0, y: -1.5, duration: 1.4)
-        bobUp.timingMode   = .easeInEaseOut
-        bobDown.timingMode = .easeInEaseOut
-        run(SKAction.repeatForever(SKAction.sequence([bobUp, bobDown])), withKey: "idle")
+        // B025（市庁舎）は旗揺れアニメーション、それ以外は上下ゆらぎ
+        if let frames = PixelArtRenderer.buildingAnimationTextures(id: buildingId, level: level) {
+            let anim = SKAction.animate(with: frames, timePerFrame: 0.35, resize: false, restore: false)
+            run(SKAction.repeatForever(anim), withKey: "idle")
+        } else {
+            let bobUp   = SKAction.moveBy(x: 0, y: 1.5, duration: 1.4)
+            let bobDown = SKAction.moveBy(x: 0, y: -1.5, duration: 1.4)
+            bobUp.timingMode   = .easeInEaseOut
+            bobDown.timingMode = .easeInEaseOut
+            run(SKAction.repeatForever(SKAction.sequence([bobUp, bobDown])), withKey: "idle")
+        }
     }
 
     func highlightBuildingZone() {
