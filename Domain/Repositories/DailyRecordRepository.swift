@@ -29,6 +29,9 @@ protocol DailyRecordRepositoryProtocol {
 
     /// 全期間の累計 CP 合計を取得（ゲーム進行・マップ拡張の基準値）
     func cumulativeCPTotal() async throws -> Int
+
+    /// 前日の合計 CP を取得（朝の天気ベースライン計算に使用）
+    func previousDayCPTotal() async throws -> Int
 }
 
 // MARK: - SwiftData 実装
@@ -93,6 +96,11 @@ final class DailyRecordRepository: DailyRecordRepositoryProtocol {
         // アーカイブ含む全記録の totalCP を合計（起動時の cumulative CP 初期化に使用）
         let records = try modelContext.fetch(FetchDescriptor<DailyRecord>())
         return records.reduce(0) { $0 + $1.totalCP }
+    }
+
+    func previousDayCPTotal() async throws -> Int {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        return (try await record(for: yesterday))?.totalCP ?? 0
     }
 }
 

@@ -23,6 +23,12 @@ final class CitySceneCoordinator {
 
     var totalCP:        Int    = 0       // 全期間累計 CP（永続値）
     var todayCP:        Int    = 0       // 今日の CP（0〜500, 天気・HUD 用）
+
+    // 朝の天気ベースライン（ストリーク＋前日キャリーオーバーによる底上げ値）
+    // todayCP がこの値を超えたら実績 CP が天気に反映される
+    // totalCP の累積計算には一切影響しない
+    private var morningBaselineCP: Int = 0
+
     var mapSize:        MapSize = .small
     var currentWeather: WeatherType = .sunny
     var selectedBuilding: BuildingInfo? = nil
@@ -71,11 +77,17 @@ final class CitySceneCoordinator {
     // MARK: - 累計 CP 初期化（起動時に DB から一度だけ呼ぶ）
 
     /// - Parameters:
-    ///   - cumulative: 全期間の累計 CP（DailyRecordRepository.cumulativeCPTotal()）
-    ///   - today:      今日の CP（AppState.todayTotalCP）
-    func initCumulativeCP(cumulative: Int, today: Int) {
+    ///   - cumulative:    全期間の累計 CP（DailyRecordRepository.cumulativeCPTotal()）
+    ///   - today:         今日の CP（AppState.todayTotalCP）
+    ///   - streak:        連続記録日数（朝のベースライン計算に使用）
+    ///   - previousDayCP: 前日の合計 CP（朝のキャリーオーバーに使用）
+    func initCumulativeCP(cumulative: Int, today: Int,
+                          streak: Int = 0, previousDayCP: Int = 0) {
         totalCP = min(cumulative, 999_999)
         todayCP = min(today, 500)
+        // 朝の天気ベースライン: ストリーク 10CP/日 + 前日の 30%（上限 150）
+        // 例: 7日継続 + 前日400CP → 70 + 120 = 190 → 上限 150 → 「晴れ時々曇り」確定
+        morningBaselineCP = min(streak * 10 + previousDayCP * 30 / 100, 150)
         syncBuiltBuildings()   // 建設済みを復元
         updateWeather()
         updateNPCCount()
@@ -138,7 +150,10 @@ final class CitySceneCoordinator {
     // MARK: - 天気更新（todayCP 0〜500 から天気を決定）
 
     private func updateWeather() {
-        let cp = max(0, min(todayCP, 500))
+        // morningBaselineCP を下限として使用:
+        //   todayCP が超えれば実績 CP が天気を決定する
+        //   todayCP が下回っている間はベースラインが天気を底上げする
+        let cp = max(0, min(max(todayCP, morningBaselineCP), 500))
         currentWeather = weatherForCP(cp)
         scene?.updateWeather(currentWeather)
     }

@@ -160,8 +160,16 @@ struct RootView: View {
 
         // 6. 起動時の街ビュー同期（cumulative CP を DB から計算して初期化）
         let repo = makeDailyRecordRepository()
-        let cumulativeCP = (try? await repo.cumulativeCPTotal()) ?? appState.todayTotalCP
-        cityCoordinator.initCumulativeCP(cumulative: cumulativeCP, today: appState.todayTotalCP)
+        let cumulativeCP  = (try? await repo.cumulativeCPTotal())  ?? appState.todayTotalCP
+        // 前日 CP を取得: 朝の天気ベースライン計算に使用
+        // （ストリーク×10 + 前日CP×30% を上限150として天気の底上げに使用）
+        let previousDayCP = (try? await repo.previousDayCPTotal()) ?? 0
+        cityCoordinator.initCumulativeCP(
+            cumulative:    cumulativeCP,
+            today:         appState.todayTotalCP,
+            streak:        appState.todayStreak,
+            previousDayCP: previousDayCP
+        )
         cityCoordinator.updateTimeOfDay(Calendar.current.component(.hour, from: Date()))
 
         // 7. 通知スケジュール
