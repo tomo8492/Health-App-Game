@@ -61,6 +61,11 @@ final class CitySceneCoordinator {
         scene?.applyPremiumTheme()
     }
 
+    /// カメラをマップ中心・等倍にリセット（全体図ボタンから呼ぶ: CLAUDE.md Key Rule 9）
+    func resetCamera() {
+        scene?.resetCameraToCenter()
+    }
+
     /// AppState.todayTotalCP と絶対値で同期（RootView の onChange から呼ぶ）
     /// addCP は差分加算のため、AppState の絶対値と合わせるにはこちらを使う
     func syncTotalCP(_ cp: Int) {

@@ -53,9 +53,11 @@ final class BuildingNode: SKSpriteNode {
         super.init(texture: tex, color: .clear, size: spriteSize)
 
         // アンカーY: タイル前面底頂点がノード位置の tileH/2 下に来るよう調整
+        // anchorY: タイル前面底頂点がノード位置の tileH/2 下に来るよう調整
+        // buildingAnchorY() の内部呼び出しと重複しないよう cfg から直接計算
         self.anchorPoint = CGPoint(
             x: 0.5,
-            y: PixelArtRenderer.buildingAnchorY(id: buildingId, level: level)
+            y: (PixelArtRenderer.tileH / 2) / totalH
         )
 
         self.isUserInteractionEnabled = true

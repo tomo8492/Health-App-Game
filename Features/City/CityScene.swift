@@ -37,8 +37,8 @@ final class CityScene: SKScene {
 
     override func didMove(to view: SKView) {
         setupScene()
+        setupMap()      // parsedMap を先にセットしてからカメラ初期位置を決定
         setupCamera()
-        setupMap()
         setupHUD()
         setupGestures(in: view)
         startTimeBasedUpdates()
@@ -51,13 +51,22 @@ final class CityScene: SKScene {
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
         [mapLayer, buildingLayer, npcLayer, weatherLayer].forEach { addChild($0) }
         hudLayer.zPosition = 1000
-        addChild(hudLayer)
+        // hudLayer は setupHUD() 内で cameraNode に addChild するため、ここでは追加しない
     }
 
     private func setupCamera() {
         camera = cameraNode
         cameraNode.setScale(1.0)
         addChild(cameraNode)
+        // マップ中心を起動時の初期表示位置に設定（setupMap() の後に呼ぶこと）
+        if let map = parsedMap {
+            cameraNode.position = TiledMapParser.isoToScreen(
+                x: map.width  / 2,
+                y: map.height / 2,
+                tileWidth:  CGFloat(map.tileWidth),
+                tileHeight: CGFloat(map.tileHeight)
+            )
+        }
     }
 
     // MARK: - タイルマップ
@@ -298,13 +307,15 @@ final class CityScene: SKScene {
     // MARK: - 時間帯ライティング
 
     func updateTimeOfDay(_ hour: Int) {
+        let alpha = timeAlpha(hour: hour)
+        guard alpha > 0 else { return }  // 昼間は不要なオーバーレイノードを生成しない
         let overlay = SKSpriteNode(color: timeColor(hour: hour),
                                    size: CGSize(width: size.width * 3, height: size.height * 3))
         overlay.alpha     = 0
         overlay.zPosition = 300
         addChild(overlay)
         overlay.run(SKAction.sequence([
-            SKAction.fadeAlpha(to: timeAlpha(hour: hour), duration: 2.0),
+            SKAction.fadeAlpha(to: alpha, duration: 2.0),
             SKAction.wait(forDuration: 1.0),
             SKAction.fadeOut(withDuration: 2.5),
             SKAction.removeFromParent()
@@ -329,6 +340,23 @@ final class CityScene: SKScene {
         }
     }
 
+    // MARK: - カメラリセット
+
+    func resetCameraToCenter() {
+        guard let map = parsedMap else { return }
+        let center = TiledMapParser.isoToScreen(
+            x: map.width  / 2,
+            y: map.height / 2,
+            tileWidth:  CGFloat(map.tileWidth),
+            tileHeight: CGFloat(map.tileHeight)
+        )
+        let move  = SKAction.move(to: center, duration: 0.45)
+        let scale = SKAction.scale(to: 1.0,   duration: 0.45)
+        move.timingMode  = .easeInEaseOut
+        scale.timingMode = .easeInEaseOut
+        cameraNode.run(SKAction.group([move, scale]))
+    }
+
     // MARK: - マップ拡張
 
     func expandMap(to mapSize: MapSize) {
@@ -344,6 +372,8 @@ final class CityScene: SKScene {
         if let coordinator {
             updateNPCCount(coordinator.npcCount)
         }
+        // 拡張後もマップ中心を表示
+        resetCameraToCenter()
     }
 
     // MARK: - プレミアムテーマ

@@ -276,11 +276,11 @@ struct HomeView: View {
 
     private var bottomBar: some View {
         HStack(spacing: 0) {
-            // 切替ボタン
+            // 全体図ボタン（カメラをマップ中心・等倍にリセット）
             Button {
-                coordinator.selectedBuilding = nil
+                coordinator.resetCamera()
             } label: {
-                Text("切替")
+                Text("全体図")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Color.white)
                     .frame(width: 64, height: 36)
@@ -378,9 +378,9 @@ struct HomeView: View {
     }
 
     private var safeAreaTopPadding: CGFloat {
-        (UIApplication.shared.connectedScenes
+        UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first?.safeAreaInsets.top ?? 0)
+            .first?.keyWindow?.safeAreaInsets.top ?? 0
     }
 }
 

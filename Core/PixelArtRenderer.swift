@@ -185,6 +185,23 @@ private enum NPCPixels {
          [8,8,0,0,0,0,8,8],
          [8,0,0,0,0,0,0,8]]
     }
+    /// 歩行中間フレーム（両足クロス）: frame 2 で使用
+    static func walkMid() -> [[Int]] {
+        [[0,0,1,1,1,1,0,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,4,5,5,5,5,4,4],
+         [4,5,5,5,5,5,5,4],
+         [4,5,6,6,6,6,5,4],
+         [4,7,7,7,7,7,7,4],
+         [0,7,7,7,7,7,7,0],
+         [0,7,0,0,0,0,7,0],
+         [7,8,0,0,0,0,8,7],
+         [8,0,7,0,0,7,0,8],
+         [8,0,8,0,0,8,0,8],
+         [8,0,0,0,0,0,0,8]]
+    }
 }
 
 // MARK: - PixelArtRenderer (Public API)
@@ -366,8 +383,9 @@ enum PixelArtRenderer {
                 rs.addLine(to: CGPoint(x: w/2, y: roofBaseY + tileH/2 - ridgeH))
                 rs.addLine(to: CGPoint(x: w,   y: roofBaseY - ridgeH))
                 rs.close()
-                config.accentColor.withAlphaComponent(0.4).setFill(); rs.fill()
-                config.topColor.withAlphaComponent(0.8).setFill(); rs.fill()
+                // 右面: topColor ベース + アクセント色でアイソメ奥行き影を表現
+                config.topColor.setFill(); rs.fill()
+                config.accentColor.withAlphaComponent(0.35).setFill(); rs.fill()
 
             case .dome:
                 // ドーム屋根
@@ -399,7 +417,7 @@ enum PixelArtRenderer {
         guard config.floors >= 2 else { return }
         let wW: CGFloat = 5, wH: CGFloat = 6
         let fH = floorH
-        let cols = isLeft ? 2 : 2
+        let cols = 2
         for floor in 0..<config.floors {
             let fy = baseY - bH + CGFloat(floor) * fH + 4
             for col in 0..<cols {
@@ -428,6 +446,7 @@ enum PixelArtRenderer {
         let pixels: [[Int]]
         switch frame % 4 {
         case 1: pixels = NPCPixels.walkLeft()
+        case 2: pixels = NPCPixels.walkMid()
         case 3: pixels = NPCPixels.walkRight()
         default: pixels = NPCPixels.idle()
         }
