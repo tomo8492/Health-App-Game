@@ -34,6 +34,40 @@ final class CitySceneCoordinator {
 
     weak var scene: CityScene?
 
+    // MARK: - 建物建設（CLAUDE.md Key Rule 9）
+
+    /// 建設済み建物 ID（@Observable → UI が自動更新）
+    var builtBuildingIds: Set<String> = []
+
+    /// BuildingPlacementStore から建設済み ID を読み込む（起動時・建設後に呼ぶ）
+    func syncBuiltBuildings() {
+        builtBuildingIds = BuildingPlacementStore.shared.builtIds
+    }
+
+    /// 建設可能かチェック（CP 不足 or 建設済みの場合 false）
+    func canBuild(_ entry: BuildingCatalogEntry) -> Bool {
+        !builtBuildingIds.contains(entry.id) && totalCP >= entry.requiredCP
+    }
+
+    /// 建物を建設する
+    /// - Returns: 配置成功なら true、CP 不足 / 建設済み / 配置不可なら false
+    @discardableResult
+    func buildBuilding(_ entry: BuildingCatalogEntry) -> Bool {
+        guard canBuild(entry) else { return false }
+        guard let (gx, gy) = scene?.findBestPosition(for: entry.axis) else { return false }
+        let placed = PlacedBuilding(
+            id:      entry.id,
+            name:    entry.name,
+            axisKey: entry.axis.key,
+            gridX:   gx,
+            gridY:   gy
+        )
+        BuildingPlacementStore.shared.place(placed)
+        builtBuildingIds.insert(entry.id)   // @Observable → UI 即時更新
+        scene?.placeNewBuilding(placed)
+        return true
+    }
+
     // MARK: - 累計 CP 初期化（起動時に DB から一度だけ呼ぶ）
 
     /// - Parameters:
@@ -42,6 +76,7 @@ final class CitySceneCoordinator {
     func initCumulativeCP(cumulative: Int, today: Int) {
         totalCP = min(cumulative, 999_999)
         todayCP = min(today, 500)
+        syncBuiltBuildings()   // 建設済みを復元
         updateWeather()
         updateNPCCount()
         checkMapExpansion()

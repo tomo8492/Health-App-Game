@@ -199,6 +199,8 @@ private struct BuildingCatalogCard: View {
     let entry:  BuildingCatalogEntry
     let action: () -> Void
 
+    @Environment(CitySceneCoordinator.self) private var coordinator
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 10) {
@@ -209,6 +211,16 @@ private struct BuildingCatalogCard: View {
                     Image(systemName: entry.axis.icon)
                         .font(.largeTitle)
                         .foregroundStyle(entry.axis.color)
+
+                    // ステータスバッジ（右上）
+                    VStack {
+                        HStack {
+                            Spacer()
+                            buildStatusBadge
+                        }
+                        Spacer()
+                    }
+                    .padding(6)
                 }
 
                 VStack(spacing: 3) {
@@ -225,8 +237,29 @@ private struct BuildingCatalogCard: View {
             }
             .padding(12)
             .background(Color.vcCardBackground, in: RoundedRectangle(cornerRadius: 16))
+            .opacity(coordinator.builtBuildingIds.contains(entry.id) ? 0.65 : 1.0)
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var buildStatusBadge: some View {
+        if coordinator.builtBuildingIds.contains(entry.id) {
+            Image(systemName: "checkmark.circle.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, Color.green)
+                .font(.system(size: 18))
+        } else if coordinator.totalCP >= entry.requiredCP {
+            Image(systemName: "plus.circle.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, entry.axis.color)
+                .font(.system(size: 18))
+        } else {
+            Image(systemName: "lock.circle.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, Color.vcSecondaryLabel)
+                .font(.system(size: 18))
+        }
     }
 }
 
@@ -235,6 +268,8 @@ private struct BuildingCatalogCard: View {
 struct BuildingCatalogDetailSheet: View {
     let entry: BuildingCatalogEntry
     @Environment(\.dismiss) private var dismiss
+    @Environment(CitySceneCoordinator.self) private var coordinator
+    @State private var didBuild = false
 
     var body: some View {
         NavigationStack {
@@ -278,6 +313,9 @@ struct BuildingCatalogDetailSheet: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
 
+                    // 建設ボタン / ステータス
+                    buildSection
+
                     Spacer()
                 }
             }
@@ -287,6 +325,83 @@ struct BuildingCatalogDetailSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("閉じる") { dismiss() }
                 }
+            }
+        }
+    }
+
+    // MARK: - 建設セクション
+
+    @ViewBuilder
+    private var buildSection: some View {
+        VStack(spacing: 12) {
+            if coordinator.builtBuildingIds.contains(entry.id) {
+                // 建設済み
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.green)
+                    Text("建設済み")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.green)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal)
+
+            } else if coordinator.totalCP >= entry.requiredCP {
+                // 建設可能
+                Button {
+                    let success = coordinator.buildBuilding(entry)
+                    if success {
+                        didBuild = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: didBuild ? "checkmark" : "hammer.fill")
+                        Text(didBuild ? "建設完了！" : "建設する")
+                            .font(.subheadline.weight(.bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(didBuild ? Color.green : entry.axis.color,
+                                in: RoundedRectangle(cornerRadius: 12))
+                    .foregroundStyle(.white)
+                }
+                .padding(.horizontal)
+                .disabled(didBuild)
+
+            } else {
+                // CP 不足（ロック）
+                VStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.fill")
+                            .foregroundStyle(Color.vcSecondaryLabel)
+                        Text("累計 \(entry.requiredCP) CP で解放")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.vcSecondaryLabel)
+                    }
+
+                    // 進捗バー
+                    let progress = min(1.0, Double(coordinator.totalCP) / Double(max(1, entry.requiredCP)))
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.vcSecondaryLabel.opacity(0.15))
+                                .frame(height: 6)
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(entry.axis.color)
+                                .frame(width: geo.size.width * progress, height: 6)
+                        }
+                    }
+                    .frame(height: 6)
+                    .padding(.horizontal)
+
+                    Text("\(coordinator.totalCP) / \(entry.requiredCP) CP")
+                        .font(.caption2)
+                        .foregroundStyle(Color.vcSecondaryLabel)
+                }
+                .padding(.horizontal)
             }
         }
     }

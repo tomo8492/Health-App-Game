@@ -127,36 +127,16 @@ final class CityScene: SKScene {
         let cx = map.width  / 2
         let cy = map.height / 2
 
-        // ── 市庁舎（中央）── CLAUDE.md Key Rule 2
-        placeBuilding(id: "B025", name: "市庁舎",     axis: .lifestyle, gridX: cx, gridY: cy,     map: map)
+        // 初回起動時のみ市庁舎（B025）をシード
+        BuildingPlacementStore.shared.seedIfNeeded(cx: cx, cy: cy)
 
-        // ── 運動軸エリア（右上ブロック）──
-        placeBuilding(id: "B001", name: "ジム",       axis: .exercise, gridX: cx+3, gridY: cy-3, map: map)
-        placeBuilding(id: "B003", name: "公園",       axis: .exercise, gridX: cx+5, gridY: cy-5, map: map)
-        placeBuilding(id: "B004", name: "プール",     axis: .exercise, gridX: cx+4, gridY: cy-2, map: map)
-        placeBuilding(id: "B002", name: "スタジアム", axis: .exercise, gridX: cx+6, gridY: cy-3, map: map)
+        // BuildingPlacementStore の保存済み建物をすべて配置（永続化データから復元）
+        for placed in BuildingPlacementStore.shared.placedBuildings {
+            placeBuilding(id: placed.id, name: placed.name, axis: placed.axis,
+                          gridX: placed.gridX, gridY: placed.gridY, map: map)
+        }
 
-        // ── 食事軸エリア（左上ブロック）──
-        placeBuilding(id: "B007", name: "カフェ",     axis: .diet,  gridX: cx-3, gridY: cy-3, map: map)
-        placeBuilding(id: "B008", name: "マーケット", axis: .diet,  gridX: cx-5, gridY: cy-4, map: map)
-        placeBuilding(id: "B009", name: "レストラン", axis: .diet,  gridX: cx-4, gridY: cy-2, map: map)
-        placeBuilding(id: "B012", name: "ジュース",   axis: .diet,  gridX: cx-2, gridY: cy-4, map: map)
-
-        // ── 飲酒軸エリア（中央左）──
-        placeBuilding(id: "B013", name: "瞑想センター", axis: .alcohol, gridX: cx-3, gridY: cy+1, map: map)
-        placeBuilding(id: "B014", name: "ハーブティー", axis: .alcohol, gridX: cx-4, gridY: cy+3, map: map)
-
-        // ── 睡眠軸エリア（左下ブロック）──
-        placeBuilding(id: "B017", name: "睡眠クリニック", axis: .sleep, gridX: cx-3, gridY: cy+4, map: map)
-        placeBuilding(id: "B018", name: "天文台",         axis: .sleep, gridX: cx-5, gridY: cy+5, map: map)
-        placeBuilding(id: "B021", name: "月夜の公園",     axis: .sleep, gridX: cx-4, gridY: cy+6, map: map)
-
-        // ── 生活習慣軸エリア（右下ブロック）──
-        placeBuilding(id: "B023", name: "給水広場",    axis: .lifestyle, gridX: cx+2, gridY: cy+3, map: map)
-        placeBuilding(id: "B026", name: "カレンダータワー", axis: .lifestyle, gridX: cx+4, gridY: cy+4, map: map)
-        placeBuilding(id: "B028", name: "公民館",      axis: .lifestyle, gridX: cx+3, gridY: cy+5, map: map)
-
-        // ── 木・装飾 ──────────────────────────────────────────────
+        // 木・装飾
         placeTreesAround(map: map, cx: cx, cy: cy)
     }
 
@@ -206,6 +186,79 @@ final class CityScene: SKScene {
         node.playIdleAnimation()
         buildingLayer.addChild(node)
         buildings.append(node)
+    }
+
+    // MARK: - 新規建設（CitySceneCoordinator.buildBuilding から呼ぶ）
+
+    /// 建設済みの PlacedBuilding をシーンに追加する（ポップインアニメーション付き）
+    func placeNewBuilding(_ placed: PlacedBuilding) {
+        guard let map = parsedMap else { return }
+        guard placed.gridX >= 0 && placed.gridX < map.width &&
+              placed.gridY >= 0 && placed.gridY < map.height else { return }
+
+        let pos = TiledMapParser.isoToScreen(
+            x: placed.gridX, y: placed.gridY,
+            tileWidth:  CGFloat(map.tileWidth),
+            tileHeight: CGFloat(map.tileHeight)
+        )
+        let node = BuildingNode(
+            buildingId:   placed.id,
+            buildingName: placed.name,
+            axis:         placed.axis,
+            gridX:        placed.gridX,
+            gridY:        placed.gridY
+        )
+        node.position = pos
+        node.setScale(0.2)
+        node.alpha = 0
+        buildingLayer.addChild(node)
+        buildings.append(node)
+
+        // ポップインアニメーション: フェードイン → わずかにオーバーシュート → 定常サイズ
+        node.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.fadeIn(withDuration: 0.2),
+                SKAction.scale(to: 1.15, duration: 0.25)
+            ]),
+            SKAction.scale(to: 1.0, duration: 0.12),
+            SKAction.run { node.playIdleAnimation() }
+        ]))
+    }
+
+    /// 軸ゾーンから最も近い空きウォーカブルタイルを返す（スパイラル探索）
+    func findBestPosition(for axis: CPAxis) -> (Int, Int)? {
+        guard let map = parsedMap else { return nil }
+        let cx = map.width  / 2
+        let cy = map.height / 2
+
+        // 軸ゾーン中心オフセット（マップ中心からの相対グリッド座標）
+        let (ox, oy): (Int, Int)
+        switch axis {
+        case .exercise:  (ox, oy) = ( 4, -4)
+        case .diet:      (ox, oy) = (-4, -4)
+        case .alcohol:   (ox, oy) = (-4,  2)
+        case .sleep:     (ox, oy) = (-4,  5)
+        case .lifestyle: (ox, oy) = ( 3,  4)
+        }
+
+        // 既存建物が占有するグリッドセット
+        let occupied = Set(buildings.map { "\($0.gridX),\($0.gridY)" })
+
+        // 半径 0 から 8 まで広げながら空きタイルを探す
+        for radius in 0...8 {
+            for dx in -radius...radius {
+                for dy in -radius...radius {
+                    guard abs(dx) == radius || abs(dy) == radius else { continue }
+                    let gx = cx + ox + dx
+                    let gy = cy + oy + dy
+                    guard gx >= 0 && gx < map.width && gy >= 0 && gy < map.height else { continue }
+                    guard map.isWalkable(at: gx, y: gy) else { continue }
+                    guard !occupied.contains("\(gx),\(gy)") else { continue }
+                    return (gx, gy)
+                }
+            }
+        }
+        return nil
     }
 
     // MARK: - 建物 XP 加算（addCP 経由で呼ばれる）
