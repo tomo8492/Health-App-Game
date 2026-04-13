@@ -2,21 +2,36 @@
 // Features/City/
 // SCR-001: ホーム画面（街ビュー）
 //
-// CLAUDE.md Key Rule 9: CitySceneCoordinator 経由でのみ SpriteKit と通信
+// カイロソフト風 HUD デザイン（参考画像1）:
+//   ┌──────────────────────────────────────────────────┐
+//   │  Y1 春  ⛅ 3  ☀  ★10  [軸別 CP アイコン]    │ ← topBar
+//   ├──────────────────────────────────────────────────┤
+//   │                                                  │
+//   │              CITY VIEW（SpriteKit）              │
+//   │                                                  │
+//   ├──────────────────────────────────────────────────┤
+//   │ [建物名]        Lv.3    人気 45  CP +30 / 日    │ ← buildingInfoBar
+//   ├──────────────────────────────────────────────────┤
+//   │  [切替]                          [メニュー ▶]  │ ← bottomBar
+//   └──────────────────────────────────────────────────┘
+//
+// CLAUDE.md Key Rule 9: CitySceneCoordinator 経由のみで SpriteKit と通信
 
 import SwiftUI
 import SpriteKit
 
 struct HomeView: View {
 
-    @Environment(AppState.self)            private var appState
-    @Environment(CitySceneCoordinator.self) private var coordinator  // ★ RootView から環境経由
-    @State private var showPremiumStore = false
-    @State private var cachedScene: CityScene? = nil
+    @Environment(AppState.self)             private var appState
+    @Environment(CitySceneCoordinator.self) private var coordinator
+    @State private var showPremiumStore  = false
+    @State private var showCityManagement = false
+    @State private var cachedScene: CityScene?
 
     var body: some View {
-        ZStack {
-            // ─── SpriteKit 街ビュー（上 60%）───
+        ZStack(alignment: .top) {
+
+            // ─── 全画面 SpriteKit 街ビュー ───
             GeometryReader { geo in
                 SpriteView(
                     scene: makeScene(size: geo.size),
@@ -24,36 +39,33 @@ struct HomeView: View {
                 )
                 .ignoresSafeArea()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // ─── 下部オーバーレイ ───
-            VStack {
-                // 上部: 日付・天気・CP
+            // ─── UI オーバーレイ ───
+            VStack(spacing: 0) {
                 topBar
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
                 Spacer()
-
-                // 下部: 本日の CP サマリー
-                bottomSummary
-                    .padding()
+                if coordinator.selectedBuilding != nil {
+                    buildingInfoBar
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                bottomBar
             }
+            .animation(.spring(duration: 0.3), value: coordinator.selectedBuilding != nil)
         }
-        .navigationTitle("")
         .navigationBarHidden(true)
-        .sheet(item: $coordinator.selectedBuilding) { building in
-            BuildingDetailSheet(building: building)
-        }
         .sheet(isPresented: $showPremiumStore) {
-            PremiumStoreView()
-                .environment(appState)
+            PremiumStoreView().environment(appState)
+        }
+        .sheet(isPresented: $showCityManagement) {
+            NavigationStack { CityManagementView().environment(appState) }
         }
         .onChange(of: appState.todaySteps) { _, steps in
             coordinator.updateStepCount(steps)
         }
+        .onChange(of: coordinator.totalCP) { _, cp in
+            cachedScene?.updateHUDCP(cp)
+        }
         .task {
-            // 初回起動時の状態反映
             coordinator.updateTimeOfDay(Calendar.current.component(.hour, from: Date()))
         }
     }
@@ -61,89 +73,279 @@ struct HomeView: View {
     // MARK: - Make Scene
 
     private func makeScene(size: CGSize) -> CityScene {
-        if let existing = cachedScene { return existing }
-        let scene         = CityScene(size: size)
-        scene.scaleMode   = .aspectFill
-        scene.coordinator = coordinator
-        cachedScene       = scene
-        return scene
+        if let s = cachedScene { return s }
+        let s = CityScene(size: size)
+        s.scaleMode  = .aspectFill
+        s.coordinator = coordinator
+        cachedScene  = s
+        return s
     }
 
-    // MARK: - 上部バー
+    // MARK: - 上部ステータスバー（カイロソフト風）
 
     private var topBar: some View {
-        HStack {
-            // 日付・天気
-            HStack(spacing: 6) {
-                Image(systemName: weatherIcon)
-                    .foregroundStyle(weatherColor)
-                Text(Date().formatted(.dateTime.month().day()))
-                    .font(.subheadline.weight(.semibold))
+        HStack(spacing: 0) {
+            // 年・季節
+            yearSeasonBadge
+
+            Spacer(minLength: 4)
+
+            // 天気 + 住人数
+            weatherBadge
+
+            Spacer(minLength: 4)
+
+            // ★ CP スコア
+            cpBadge
+
+            Spacer(minLength: 4)
+
+            // 5軸 CP
+            axisResourcesBar
+
+            // プレミアムボタン
+            if !appState.isPremium {
+                premiumButton
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            LinearGradient(
+                colors: [Color.black.opacity(0.55), Color.black.opacity(0.35)],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
+        .padding(.top, safeAreaTopPadding)
+    }
+
+    private var yearSeasonBadge: some View {
+        VStack(spacing: 1) {
+            let year = max(1, coordinator.totalCP / 365 + 1)
+            let season = currentSeason
+            Text("Y\(year)")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.white)
+            Text(season)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(seasonColor)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var weatherBadge: some View {
+        HStack(spacing: 3) {
+            Image(systemName: weatherIcon)
+                .font(.system(size: 12))
+                .foregroundStyle(weatherIconColor)
+            Text("\(coordinator.npcCount)")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.white)
+            Image(systemName: "person.2.fill")
+                .font(.system(size: 9))
+                .foregroundStyle(Color.white.opacity(0.8))
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var cpBadge: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "star.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(Color.vcCP)
+            Text("\(coordinator.totalCP)")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.vcCP)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var axisResourcesBar: some View {
+        HStack(spacing: 5) {
+            ForEach(CPAxis.allCases, id: \.self) { axis in
+                VStack(spacing: 1) {
+                    Image(systemName: axis.icon)
+                        .font(.system(size: 8))
+                        .foregroundStyle(axis.color)
+                    Text("\(axis.cp(from: appState.todayRecord))")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.white)
+                }
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var premiumButton: some View {
+        Button { showPremiumStore = true } label: {
+            Image(systemName: "crown.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.vcCP)
+                .padding(5)
+                .background(Color.white.opacity(0.15), in: Circle())
+        }
+        .padding(.leading, 4)
+    }
+
+    // MARK: - 建物情報バー（タップ時表示）
+
+    private var buildingInfoBar: some View {
+        Group {
+            if let building = coordinator.selectedBuilding {
+                HStack(spacing: 0) {
+                    // 建物名・軸
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(building.name)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .lineLimit(1)
+                        Label(building.axis.shortName + "軸", systemImage: building.axis.icon)
+                            .font(.system(size: 10))
+                            .foregroundStyle(building.axis.color)
+                    }
+                    .frame(minWidth: 80, alignment: .leading)
+                    .padding(.leading, 12)
+
+                    Spacer()
+
+                    // Lv
+                    VStack(spacing: 2) {
+                        Text("Lv.\(building.level)")
+                            .font(.system(size: 14, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.vcCP)
+                    }
+
+                    Spacer()
+
+                    // 統計
+                    HStack(spacing: 12) {
+                        statItem(label: "人気", value: "\(building.level * 12 + 30)",
+                                 icon: "heart.fill", color: .pink)
+                        statItem(label: "地価", value: "\(building.level * 50)万",
+                                 icon: "building.2.fill", color: .orange)
+                        statItem(label: "CP", value: "+\(building.level * 8)/日",
+                                 icon: "star.fill", color: .vcCP)
+                    }
+                    .padding(.trailing, 12)
+                }
+                .frame(height: 52)
+                .background(
+                    Color.black.opacity(0.72)
+                        .overlay(
+                            building.axis.color.opacity(0.18)
+                        )
+                )
+                .overlay(
+                    Rectangle()
+                        .frame(height: 2)
+                        .foregroundStyle(building.axis.color.opacity(0.8)),
+                    alignment: .top
+                )
+                .onTapGesture {
+                    coordinator.selectedBuilding = nil
+                }
+            }
+        }
+    }
+
+    private func statItem(label: String, value: String, icon: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 2) {
+                Image(systemName: icon)
+                    .font(.system(size: 8))
+                    .foregroundStyle(color)
+                Text(value)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.white)
+            }
+            Text(label)
+                .font(.system(size: 8))
+                .foregroundStyle(Color.white.opacity(0.6))
+        }
+    }
+
+    // MARK: - 下部ナビゲーションバー（カイロソフト風）
+
+    private var bottomBar: some View {
+        HStack(spacing: 0) {
+            // 全体図ボタン（カメラをマップ中心・等倍にリセット）
+            Button {
+                coordinator.resetCamera()
+            } label: {
+                Text("全体図")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 64, height: 36)
+                    .background(Color(UIColor(hex:"4A5568")))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 0)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                    )
+            }
 
             Spacer()
 
-            // プレミアムボタン（未購入時のみ）
-            if !appState.isPremium {
-                Button {
-                    showPremiumStore = true
-                } label: {
-                    Image(systemName: "crown.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.vcCP)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                }
-            }
-
-            // CP 表示
-            HStack(spacing: 4) {
-                Image(systemName: "star.fill")
-                    .foregroundStyle(Color.vcCP)
-                    .font(.caption)
-                Text("\(coordinator.totalCP) CP")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Color.vcCP)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
-        }
-    }
-
-    // MARK: - 下部サマリー
-
-    private var bottomSummary: some View {
-        VStack(spacing: 0) {
-            // 天気メッセージ
+            // 天気メッセージ（中央）
             Text(weatherMessage)
-                .font(.caption)
-                .foregroundStyle(Color.vcSecondaryLabel)
-                .padding(.bottom, 6)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.white.opacity(0.75))
+                .lineLimit(1)
 
-            HStack(spacing: 12) {
-                ForEach(CPAxis.allCases, id: \.self) { axis in
-                    VStack(spacing: 3) {
-                        Image(systemName: axis.icon)
-                            .font(.caption)
-                            .foregroundStyle(axis.color)
-                        Text("\(coordinator.totalCP > 0 ? (coordinator.totalCP / 5) : 0)")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                    }
-                    .frame(maxWidth: .infinity)
+            Spacer()
+
+            // メニューボタン
+            Button {
+                showCityManagement = true
+            } label: {
+                HStack(spacing: 4) {
+                    Text("メニュー")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.white)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.vcCP)
                 }
+                .frame(width: 90, height: 36)
+                .background(Color(UIColor(hex:"2D6A4F")))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 0)
+                        .stroke(Color.vcCP.opacity(0.5), lineWidth: 0.5)
+                )
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 16)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .frame(height: 36)
+        .background(Color.black.opacity(0.75))
+    }
+
+    // MARK: - Helpers
+
+    private var currentSeason: String {
+        let month = Calendar.current.component(.month, from: Date())
+        switch month {
+        case 3...5:  return "春"
+        case 6...8:  return "夏"
+        case 9...11: return "秋"
+        default:     return "冬"
         }
     }
 
-    // MARK: - Weather helpers
+    private var seasonColor: Color {
+        let month = Calendar.current.component(.month, from: Date())
+        switch month {
+        case 3...5:  return Color(UIColor(hex:"FFB6C1"))
+        case 6...8:  return Color(UIColor(hex:"87CEEB"))
+        case 9...11: return Color(UIColor(hex:"FFA500"))
+        default:     return Color(UIColor(hex:"B0E0E6"))
+        }
+    }
 
     private var weatherIcon: String {
         switch coordinator.currentWeather {
@@ -155,12 +357,12 @@ struct HomeView: View {
         }
     }
 
-    private var weatherColor: Color {
+    private var weatherIconColor: Color {
         switch coordinator.currentWeather {
         case .sunny:        return .yellow
         case .partlyCloudy: return .orange
-        case .cloudy:       return .gray
-        case .rainy:        return .blue
+        case .cloudy:       return Color(UIColor(hex:"B0BEC5"))
+        case .rainy:        return .cyan
         case .stormy:       return .purple
         }
     }
@@ -170,59 +372,15 @@ struct HomeView: View {
         case .sunny:        return "快晴！街は活気に満ちています"
         case .partlyCloudy: return "晴れ時々曇り。良い調子です"
         case .cloudy:       return "曇り空。記録を頑張りましょう"
-        case .rainy:        return "雨が降っています。健康習慣を続けよう"
-        case .stormy:       return "嵐。記録を積み重ねて街を守ろう！"
+        case .rainy:        return "雨模様。健康習慣を続けよう"
+        case .stormy:       return "嵐。記録で街を守ろう！"
         }
+    }
+
+    private var safeAreaTopPadding: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.keyWindow?.safeAreaInsets.top ?? 0
     }
 }
 
-// MARK: - BuildingDetailSheet
-
-struct BuildingDetailSheet: View {
-    let building: BuildingInfo
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                // 建物アイコン（仮）
-                ZStack {
-                    Circle()
-                        .fill(building.axis.color.opacity(0.15))
-                        .frame(width: 80, height: 80)
-                    Image(systemName: building.axis.icon)
-                        .font(.largeTitle)
-                        .foregroundStyle(building.axis.color)
-                }
-
-                Text(building.name)
-                    .font(.title2.bold())
-
-                HStack(spacing: 12) {
-                    Label("\(building.axis.name)軸", systemImage: building.axis.icon)
-                        .font(.subheadline)
-                        .foregroundStyle(building.axis.color)
-                    Divider().frame(height: 16)
-                    Label("Lv.\(building.level)", systemImage: "star.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.vcCP)
-                }
-
-                Text(building.description)
-                    .font(.body)
-                    .foregroundStyle(Color.vcSecondaryLabel)
-                    .multilineTextAlignment(.center)
-
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("建物詳細")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("閉じる") { dismiss() }
-                }
-            }
-        }
-    }
-}

@@ -4,6 +4,10 @@
 // CLAUDE.md Key Rule 9: SwiftUI ↔ SpriteKit の通信は CitySceneCoordinator（@Observable）経由のみ
 // - SpriteKit シーンへの直接アクセス禁止
 // - SwiftData エンティティへのアクセスは Repository プロトコル経由のみ
+//
+// CP の2種類の管理:
+//   totalCP  — 全期間累計 CP（マップ拡張・NPC 数・年数表示に使用）
+//   todayCP  — 今日の CP（0〜500, 天気表示に使用）
 
 import Foundation
 import Observation
@@ -17,17 +21,93 @@ final class CitySceneCoordinator {
 
     // MARK: - ゲーム状態（SwiftUI が読み取る）
 
-    var totalCP:        Int    = 0
-    var mapSize:        MapSize = .small   // 20×20
+    var totalCP:        Int    = 0       // 全期間累計 CP（永続値）
+    var todayCP:        Int    = 0       // 今日の CP（0〜500, 天気・HUD 用）
+
+    // 朝の天気ベースライン（ストリーク＋前日キャリーオーバーによる底上げ値）
+    // todayCP がこの値を超えたら実績 CP が天気に反映される
+    // totalCP の累積計算には一切影響しない
+    private var morningBaselineCP: Int = 0
+
+    var mapSize:        MapSize = .small
     var currentWeather: WeatherType = .sunny
-    var selectedBuilding: BuildingInfo? = nil    // 建物タップで SwiftUI シートを表示
+    var selectedBuilding: BuildingInfo? = nil
     var npcCount:       Int    = 0
     var isPremium:      Bool   = false
-    var cityLevel:      Int    = 1         // 市庁舎レベル
+    var cityLevel:      Int    = 1
 
     // MARK: - SpriteKit シーン参照（弱参照）
 
     weak var scene: CityScene?
+
+    // MARK: - 建物建設（CLAUDE.md Key Rule 9）
+
+    /// 建設済み建物 ID（@Observable → UI が自動更新）
+    var builtBuildingIds: Set<String> = []
+
+    /// BuildingPlacementStore から建設済み ID を読み込む（起動時・建設後に呼ぶ）
+    func syncBuiltBuildings() {
+        builtBuildingIds = BuildingPlacementStore.shared.builtIds
+    }
+
+    /// 建設可能かチェック（CP 不足 or 建設済みの場合 false）
+    func canBuild(_ entry: BuildingCatalogEntry) -> Bool {
+        !builtBuildingIds.contains(entry.id) && totalCP >= entry.requiredCP
+    }
+
+    /// 建物を建設する
+    /// - Returns: 配置成功なら true、CP 不足 / 建設済み / 配置不可なら false
+    @discardableResult
+    func buildBuilding(_ entry: BuildingCatalogEntry) -> Bool {
+        guard canBuild(entry) else { return false }
+        guard let (gx, gy) = scene?.findBestPosition(for: entry.axis) else { return false }
+        let placed = PlacedBuilding(
+            id:      entry.id,
+            name:    entry.name,
+            axisKey: entry.axis.key,
+            gridX:   gx,
+            gridY:   gy
+        )
+        BuildingPlacementStore.shared.place(placed)
+        builtBuildingIds.insert(entry.id)   // @Observable → UI 即時更新
+        scene?.placeNewBuilding(placed)
+        return true
+    }
+
+    // MARK: - 累計 CP 初期化（起動時に DB から一度だけ呼ぶ）
+
+    /// - Parameters:
+    ///   - cumulative:    全期間の累計 CP（DailyRecordRepository.cumulativeCPTotal()）
+    ///   - today:         今日の CP（AppState.todayTotalCP）
+    ///   - streak:        連続記録日数（朝のベースライン計算に使用）
+    ///   - previousDayCP: 前日の合計 CP（朝のキャリーオーバーに使用）
+    func initCumulativeCP(cumulative: Int, today: Int,
+                          streak: Int = 0, previousDayCP: Int = 0) {
+        totalCP = min(cumulative, 999_999)
+        todayCP = min(today, 500)
+        // 朝の天気ベースライン: ストリーク 10CP/日 + 前日の 30%（上限 150）
+        // 例: 7日継続 + 前日400CP → 70 + 120 = 190 → 上限 150 → 「晴れ時々曇り」確定
+        morningBaselineCP = min(streak * 10 + previousDayCP * 30 / 100, 150)
+        syncBuiltBuildings()   // 建設済みを復元
+        updateWeather()
+        updateNPCCount()
+        checkMapExpansion()
+    }
+
+    // MARK: - 今日の CP 同期（AppState.todayTotalCP の onChange から呼ぶ）
+
+    /// 今日の記録が更新されたとき差分を totalCP に加算し、todayCP を更新する
+    func syncTodayCP(_ cp: Int) {
+        let delta = max(0, cp - todayCP)
+        todayCP = min(cp, 500)
+        if delta > 0 {
+            totalCP = min(totalCP + delta, 999_999)
+            scene?.onCPAdded(axis: .lifestyle, amount: delta)
+            updateNPCCount()
+            checkMapExpansion()
+        }
+        updateWeather()
+    }
 
     // MARK: - SwiftUI → SpriteKit イベント（CLAUDE.md Key Rule 9）
 
@@ -36,9 +116,10 @@ final class CitySceneCoordinator {
     ///   - axis:   更新する軸
     ///   - amount: 追加 CP 量
     func addCP(axis: CPAxis, amount: Int) {
-        // 軸別 CP を totalCP に加算（飲酒も中央広場へ: CLAUDE.md Key Rule 2）
         totalCP = min(totalCP + amount, 999_999)
+        todayCP = min(todayCP + amount, 500)
         scene?.onCPAdded(axis: axis, amount: amount)
+        scene?.addXPToBuildings(axis: axis, amount: amount)
         updateWeather()
         updateNPCCount()
         checkMapExpansion()
@@ -61,26 +142,19 @@ final class CitySceneCoordinator {
         scene?.applyPremiumTheme()
     }
 
-    /// AppState.todayTotalCP と絶対値で同期（RootView の onChange から呼ぶ）
-    /// addCP は差分加算のため、AppState の絶対値と合わせるにはこちらを使う
-    func syncTotalCP(_ cp: Int) {
-        guard cp != totalCP else { return }
-        let delta = cp - totalCP
-        totalCP = min(cp, 999_999)
-        if delta > 0 {
-            scene?.onCPAdded(axis: .lifestyle, amount: delta)  // 全軸合算を中央広場に反映
-        }
-        updateWeather()
-        updateNPCCount()
-        checkMapExpansion()
+    /// カメラをマップ中心・等倍にリセット（全体図ボタンから呼ぶ: CLAUDE.md Key Rule 9）
+    func resetCamera() {
+        scene?.resetCameraToCenter()
     }
 
-    // MARK: - 天気更新（CLAUDE.md Key Rule 2: CP→天気）
+    // MARK: - 天気更新（todayCP 0〜500 から天気を決定）
 
     private func updateWeather() {
-        // 当日 CP（0〜500）から天気を決定
-        let todayCP = min(totalCP % 500 == 0 ? 500 : totalCP % 500, 500)
-        currentWeather = weatherForCP(todayCP)
+        // morningBaselineCP を下限として使用:
+        //   todayCP が超えれば実績 CP が天気を決定する
+        //   todayCP が下回っている間はベースラインが天気を底上げする
+        let cp = max(0, min(max(todayCP, morningBaselineCP), 500))
+        currentWeather = weatherForCP(cp)
         scene?.updateWeather(currentWeather)
     }
 
@@ -94,14 +168,14 @@ final class CitySceneCoordinator {
         }
     }
 
-    // MARK: - NPC 更新
+    // MARK: - NPC 更新（totalCP 累計から計算）
 
     private func updateNPCCount() {
         npcCount = min(totalCP / 100 + 1, 20)
         scene?.updateNPCCount(npcCount)
     }
 
-    // MARK: - マップ拡張チェック（CLAUDE.md Key Rule 6）
+    // MARK: - マップ拡張チェック（CLAUDE.md Key Rule 6: 累計 CP 基準）
 
     private func checkMapExpansion() {
         let newSize: MapSize
