@@ -4,6 +4,10 @@
 // CLAUDE.md Key Rule 9: SwiftUI ↔ SpriteKit の通信は CitySceneCoordinator（@Observable）経由のみ
 // - SpriteKit シーンへの直接アクセス禁止
 // - SwiftData エンティティへのアクセスは Repository プロトコル経由のみ
+//
+// CP の2種類の管理:
+//   totalCP  — 全期間累計 CP（マップ拡張・NPC 数・年数表示に使用）
+//   todayCP  — 今日の CP（0〜500, 天気表示に使用）
 
 import Foundation
 import Observation
@@ -17,17 +21,46 @@ final class CitySceneCoordinator {
 
     // MARK: - ゲーム状態（SwiftUI が読み取る）
 
-    var totalCP:        Int    = 0
-    var mapSize:        MapSize = .small   // 20×20
+    var totalCP:        Int    = 0       // 全期間累計 CP（永続値）
+    var todayCP:        Int    = 0       // 今日の CP（0〜500, 天気・HUD 用）
+    var mapSize:        MapSize = .small
     var currentWeather: WeatherType = .sunny
-    var selectedBuilding: BuildingInfo? = nil    // 建物タップで SwiftUI シートを表示
+    var selectedBuilding: BuildingInfo? = nil
     var npcCount:       Int    = 0
     var isPremium:      Bool   = false
-    var cityLevel:      Int    = 1         // 市庁舎レベル
+    var cityLevel:      Int    = 1
 
     // MARK: - SpriteKit シーン参照（弱参照）
 
     weak var scene: CityScene?
+
+    // MARK: - 累計 CP 初期化（起動時に DB から一度だけ呼ぶ）
+
+    /// - Parameters:
+    ///   - cumulative: 全期間の累計 CP（DailyRecordRepository.cumulativeCPTotal()）
+    ///   - today:      今日の CP（AppState.todayTotalCP）
+    func initCumulativeCP(cumulative: Int, today: Int) {
+        totalCP = min(cumulative, 999_999)
+        todayCP = min(today, 500)
+        updateWeather()
+        updateNPCCount()
+        checkMapExpansion()
+    }
+
+    // MARK: - 今日の CP 同期（AppState.todayTotalCP の onChange から呼ぶ）
+
+    /// 今日の記録が更新されたとき差分を totalCP に加算し、todayCP を更新する
+    func syncTodayCP(_ cp: Int) {
+        let delta = max(0, cp - todayCP)
+        todayCP = min(cp, 500)
+        if delta > 0 {
+            totalCP = min(totalCP + delta, 999_999)
+            scene?.onCPAdded(axis: .lifestyle, amount: delta)
+            updateNPCCount()
+            checkMapExpansion()
+        }
+        updateWeather()
+    }
 
     // MARK: - SwiftUI → SpriteKit イベント（CLAUDE.md Key Rule 9）
 
@@ -36,9 +69,10 @@ final class CitySceneCoordinator {
     ///   - axis:   更新する軸
     ///   - amount: 追加 CP 量
     func addCP(axis: CPAxis, amount: Int) {
-        // 軸別 CP を totalCP に加算（飲酒も中央広場へ: CLAUDE.md Key Rule 2）
         totalCP = min(totalCP + amount, 999_999)
+        todayCP = min(todayCP + amount, 500)
         scene?.onCPAdded(axis: axis, amount: amount)
+        scene?.addXPToBuildings(axis: axis, amount: amount)
         updateWeather()
         updateNPCCount()
         checkMapExpansion()
@@ -66,26 +100,11 @@ final class CitySceneCoordinator {
         scene?.resetCameraToCenter()
     }
 
-    /// AppState.todayTotalCP と絶対値で同期（RootView の onChange から呼ぶ）
-    /// addCP は差分加算のため、AppState の絶対値と合わせるにはこちらを使う
-    func syncTotalCP(_ cp: Int) {
-        guard cp != totalCP else { return }
-        let delta = cp - totalCP
-        totalCP = min(cp, 999_999)
-        if delta > 0 {
-            scene?.onCPAdded(axis: .lifestyle, amount: delta)  // 全軸合算を中央広場に反映
-        }
-        updateWeather()
-        updateNPCCount()
-        checkMapExpansion()
-    }
-
-    // MARK: - 天気更新（CLAUDE.md Key Rule 2: CP→天気）
+    // MARK: - 天気更新（todayCP 0〜500 から天気を決定）
 
     private func updateWeather() {
-        // 当日 CP（0〜500）から天気を決定
-        let todayCP = min(totalCP % 500 == 0 ? 500 : totalCP % 500, 500)
-        currentWeather = weatherForCP(todayCP)
+        let cp = max(0, min(todayCP, 500))
+        currentWeather = weatherForCP(cp)
         scene?.updateWeather(currentWeather)
     }
 
@@ -99,14 +118,14 @@ final class CitySceneCoordinator {
         }
     }
 
-    // MARK: - NPC 更新
+    // MARK: - NPC 更新（totalCP 累計から計算）
 
     private func updateNPCCount() {
         npcCount = min(totalCP / 100 + 1, 20)
         scene?.updateNPCCount(npcCount)
     }
 
-    // MARK: - マップ拡張チェック（CLAUDE.md Key Rule 6）
+    // MARK: - マップ拡張チェック（CLAUDE.md Key Rule 6: 累計 CP 基準）
 
     private func checkMapExpansion() {
         let newSize: MapSize

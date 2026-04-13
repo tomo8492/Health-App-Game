@@ -99,9 +99,9 @@ struct RootView: View {
             PremiumStoreView().environment(appState)
         }
         .task { await setupApp() }
-        // CP 変化を街ビューへ同期 ★
+        // 今日の CP 変化を街ビューへ同期（todayCP と totalCP を分離管理）
         .onChange(of: appState.todayTotalCP) { _, newCP in
-            cityCoordinator.syncTotalCP(newCP)
+            cityCoordinator.syncTodayCP(newCP)
             Task { await checkAchievements() }
         }
         // 歩数変化を街の NPC 数へ同期
@@ -158,8 +158,10 @@ struct RootView: View {
         // 5. 旧データアーカイブ（無料版: 90日超）★
         try? await streakMgr.archiveOldRecords(isPremium: appState.isPremium)
 
-        // 6. 起動時の街ビュー同期
-        cityCoordinator.syncTotalCP(appState.todayTotalCP)
+        // 6. 起動時の街ビュー同期（cumulative CP を DB から計算して初期化）
+        let repo = makeDailyRecordRepository()
+        let cumulativeCP = (try? await repo.cumulativeCPTotal()) ?? appState.todayTotalCP
+        cityCoordinator.initCumulativeCP(cumulative: cumulativeCP, today: appState.todayTotalCP)
         cityCoordinator.updateTimeOfDay(Calendar.current.component(.hour, from: Date()))
 
         // 7. 通知スケジュール
@@ -177,9 +179,9 @@ struct RootView: View {
         let streak = appState.todayStreak
 
         achievementEngine.checkAchievements(
-            totalCP:     appState.todayTotalCP,
+            totalCP:     cityCoordinator.totalCP,   // 累計 CP（マイルストーン実績に使用）
             streak:      streak,
-            npcCount:    cityCoordinator.npcCount,  // ★ 実際の NPC 数を参照
+            npcCount:    cityCoordinator.npcCount,
             todayRecord: appState.todayRecord,
             allRecords:  allRecords
         )

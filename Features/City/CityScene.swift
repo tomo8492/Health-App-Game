@@ -26,7 +26,7 @@ final class CityScene: SKScene {
     private var parsedMap: ParsedMap?
     private var npcs: [NPCNode] = []
     private var currentWeather: WeatherType = .sunny
-    private var weatherEmitter: SKEmitterNode?
+    private var weatherEmitter: SKNode?    // SKEmitterNode or programmatic rain node
     private var buildings: [BuildingNode] = []
 
     // MARK: - カメラ
@@ -208,6 +208,22 @@ final class CityScene: SKScene {
         buildings.append(node)
     }
 
+    // MARK: - 建物 XP 加算（addCP 経由で呼ばれる）
+
+    /// CP 記録に応じて対応軸の建物に XP を付与する
+    /// - 対応軸の建物: amount / 5 XP（100CP → 20 XP）
+    /// - 市庁舎 (B025): 全軸から 1/5 の XP を受け取る（中央広場: CLAUDE.md Key Rule 2）
+    func addXPToBuildings(axis: CPAxis, amount: Int) {
+        let xp = max(1, amount / 5)
+        buildings.filter { $0.axis == axis }.forEach { $0.addXP(xp) }
+        // 市庁舎（lifestyle 軸）は全軸から補助 XP を受け取る
+        if axis != .lifestyle {
+            buildings
+                .filter { $0.buildingId == "B025" }
+                .forEach { $0.addXP(max(1, xp / 5)) }
+        }
+    }
+
     // MARK: - CP 加算エフェクト
 
     func onCPAdded(axis: CPAxis, amount: Int) {
@@ -243,13 +259,62 @@ final class CityScene: SKScene {
         let color = bgColor(for: weather)
         run(SKAction.colorize(with: color, colorBlendFactor: 1, duration: 2.0))
 
-        if let file = weather.particleFileName,
-           let emitter = SKEmitterNode(fileNamed: file) {
-            emitter.position  = CGPoint(x: 0, y: size.height / 2)
-            emitter.zPosition = 200
-            weatherLayer.addChild(emitter)
-            weatherEmitter = emitter
+        // .sks ファイル非依存のプログラム生成パーティクルにフォールバック
+        switch weather {
+        case .rainy:
+            let node = makeRainNode(isStorm: false)
+            node.zPosition = 200
+            weatherLayer.addChild(node)
+            weatherEmitter = node
+        case .stormy:
+            let node = makeRainNode(isStorm: true)
+            node.zPosition = 200
+            weatherLayer.addChild(node)
+            weatherEmitter = node
+        default:
+            break  // sunny / partlyCloudy / cloudy は背景色変化のみ
         }
+    }
+
+    /// .sks ファイル不要のプログラム生成雨エフェクト
+    private func makeRainNode(isStorm: Bool) -> SKNode {
+        let container  = SKNode()
+        let sceneW     = size.width + 120
+        let sceneH     = size.height
+        let dropColor  = isStorm
+            ? UIColor(white: 0.55, alpha: 0.80)
+            : UIColor(white: 0.78, alpha: 0.55)
+        let interval: TimeInterval = isStorm ? 0.018 : 0.038
+        let speed: CGFloat         = isStorm ? 310    : 200
+        let dropH: CGFloat         = isStorm ? 14     : 9
+        let windX: CGFloat         = isStorm ? -45    : -12
+
+        let spawn = SKAction.repeatForever(SKAction.sequence([
+            SKAction.run { [weak container] in
+                guard let container else { return }
+                let drop = SKSpriteNode(
+                    color: dropColor,
+                    size: CGSize(width: 1.2, height: dropH)
+                )
+                drop.position = CGPoint(
+                    x: CGFloat.random(in: -sceneW / 2 ... sceneW / 2),
+                    y: sceneH / 2 + 20
+                )
+                container.addChild(drop)
+                let duration = Double(sceneH + 40) / Double(speed)
+                drop.run(SKAction.sequence([
+                    SKAction.move(
+                        to: CGPoint(x: drop.position.x + windX,
+                                    y: -sceneH / 2 - 20),
+                        duration: duration
+                    ),
+                    SKAction.removeFromParent()
+                ]))
+            },
+            SKAction.wait(forDuration: interval)
+        ]))
+        container.run(spawn, withKey: "rain")
+        return container
     }
 
     private func bgColor(for weather: WeatherType) -> SKColor {

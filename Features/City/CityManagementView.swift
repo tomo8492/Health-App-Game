@@ -127,7 +127,8 @@ private struct MapExpansionProgressView: View {
         ("50×50", 30_000),
     ]
 
-    @Environment(AppState.self) private var appState
+    // 累計 CP で判定（todayTotalCP は今日分のみで正しくない）
+    @Environment(CitySceneCoordinator.self) private var coordinator
 
     var body: some View {
         VStack(spacing: 6) {
@@ -135,16 +136,17 @@ private struct MapExpansionProgressView: View {
                 Text("マップ拡張")
                     .font(.caption.weight(.semibold))
                 Spacer()
-                Text("累計 CP で自動拡張")
+                Text("累計 \(coordinator.totalCP) CP")
                     .font(.caption2)
                     .foregroundStyle(Color.vcSecondaryLabel)
+                    .contentTransition(.numericText())
             }
             HStack(spacing: 0) {
                 ForEach(thresholds.indices, id: \.self) { i in
                     let t = thresholds[i]
                     VStack(spacing: 4) {
                         Circle()
-                            .fill(appState.todayTotalCP >= t.cp ? Color.vcCP : Color.vcSecondaryLabel.opacity(0.3))
+                            .fill(coordinator.totalCP >= t.cp ? Color.vcCP : Color.vcSecondaryLabel.opacity(0.3))
                             .frame(width: 10, height: 10)
                         Text(t.label)
                             .font(.system(size: 9))
