@@ -104,6 +104,7 @@ final class CityScene: SKScene {
         renderMap()
         renderRoads()
         placeInitialBuildings()
+        placeDecorations()
     }
 
     /// アイソメトリックタイルをプログラムで描画
@@ -373,11 +374,129 @@ final class CityScene: SKScene {
         )
         npc.position  = pos
         npc.zPosition = CGFloat(x + y) + 5
+        npc.setScale(1.45)   // カイロソフト風: NPC を見やすいサイズに
         npc.alpha     = 0
         npcLayer.addChild(npc)
         npc.run(SKAction.fadeIn(withDuration: 0.3))
         npc.startWandering(map: map)
         npcs.append(npc)
+    }
+
+    // MARK: - 樹木・装飾の配置
+
+    private func placeDecorations() {
+        guard let map = parsedMap else { return }
+        let center = map.width / 2
+        let reg = coordinator?.registry ?? BuildingRegistry()
+
+        // 建物（バッファ込み）・道路タイルを除外セットに登録
+        var blocked = Set<String>()
+        for b in reg.placed {
+            for dx in -1...1 {
+                for dy in -1...1 {
+                    let bx = b.gridX + dx, by = b.gridY + dy
+                    guard bx >= 0 && bx < map.width && by >= 0 && by < map.height else { continue }
+                    blocked.insert("\(bx),\(by)")
+                }
+            }
+        }
+        for cell in reg.roadCells() { blocked.insert(cell) }
+
+        // 中央広場周辺もクリア
+        for r in (center - 4)...(center + 4) {
+            for c in (center - 4)...(center + 4) {
+                blocked.insert("\(c),\(r)")
+            }
+        }
+
+        for row in 0..<map.height {
+            for col in 0..<map.width {
+                guard !blocked.contains("\(col),\(row)") else { continue }
+
+                let dist = abs(row - center) + abs(col - center)
+                guard dist >= 5 else { continue }
+
+                // 乱数不使用: 決定論的ハッシュで再現性保証
+                let hash = (row * 1013 + col * 577) % 100
+                let prob: Int = dist >= 14 ? 35 : (dist >= 9 ? 18 : 9)
+                guard hash < prob else { continue }
+
+                let pos = TiledMapParser.isoToScreen(
+                    x: col, y: row,
+                    tileWidth: CGFloat(map.tileWidth), tileHeight: CGFloat(map.tileHeight)
+                )
+                let variant = (row * 397 + col * 239) % 3
+                let tree = makeTreeNode(variant: variant)
+                tree.position  = pos
+                tree.zPosition = CGFloat(col + row) * 0.01 + 2
+                groundLayer.addChild(tree)
+            }
+        }
+    }
+
+    private func makeTreeNode(variant: Int) -> SKNode {
+        let node = SKNode()
+        let scales: [CGFloat] = [1.0, 0.82, 0.66]
+        node.setScale(scales[variant % 3])
+
+        // 影
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 22, height: 8))
+        shadow.fillColor   = UIColor.black.withAlphaComponent(0.13)
+        shadow.strokeColor = .clear
+        shadow.position    = CGPoint(x: 3, y: -12)
+        shadow.zPosition   = -1
+        node.addChild(shadow)
+
+        // 幹
+        let trunkH: CGFloat = variant == 2 ? 7 : 13
+        let trunk = SKShapeNode(rectOf: CGSize(width: 5, height: trunkH), cornerRadius: 1)
+        trunk.fillColor   = UIColor(red: 0.40, green: 0.24, blue: 0.08, alpha: 1)
+        trunk.strokeColor = .clear
+        trunk.position    = CGPoint(x: 0, y: trunkH / 2 - 12)
+        node.addChild(trunk)
+
+        // 葉（3 層の楕円でふわふわ感）
+        typealias LeafLayer = (CGPoint, CGSize, UIColor)
+        let layers: [LeafLayer]
+        switch variant {
+        case 0:   // 丸木
+            layers = [
+                (CGPoint(x: -3, y:  0), CGSize(width: 20, height: 14),
+                 UIColor(red: 0.17, green: 0.54, blue: 0.15, alpha: 1)),
+                (CGPoint(x:  3, y:  7), CGSize(width: 17, height: 12),
+                 UIColor(red: 0.23, green: 0.66, blue: 0.19, alpha: 1)),
+                (CGPoint(x:  0, y: 14), CGSize(width: 13, height: 10),
+                 UIColor(red: 0.30, green: 0.75, blue: 0.23, alpha: 1)),
+            ]
+        case 1:   // 広がり木
+            layers = [
+                (CGPoint(x: -5, y:  0), CGSize(width: 22, height: 12),
+                 UIColor(red: 0.19, green: 0.57, blue: 0.17, alpha: 1)),
+                (CGPoint(x:  4, y:  6), CGSize(width: 19, height: 11),
+                 UIColor(red: 0.25, green: 0.67, blue: 0.21, alpha: 1)),
+                (CGPoint(x: -1, y: 11), CGSize(width: 15, height:  9),
+                 UIColor(red: 0.31, green: 0.75, blue: 0.25, alpha: 1)),
+            ]
+        default:  // 低木
+            layers = [
+                (CGPoint(x:  0, y:  0), CGSize(width: 17, height: 10),
+                 UIColor(red: 0.21, green: 0.59, blue: 0.19, alpha: 1)),
+                (CGPoint(x:  0, y:  6), CGSize(width: 13, height:  8),
+                 UIColor(red: 0.27, green: 0.69, blue: 0.23, alpha: 1)),
+            ]
+        }
+
+        for (i, (lpos, sz, color)) in layers.enumerated() {
+            let leaf = SKShapeNode(ellipseOf: sz)
+            leaf.fillColor   = color
+            leaf.strokeColor = UIColor.black.withAlphaComponent(0.07)
+            leaf.lineWidth   = 0.4
+            leaf.position    = lpos
+            leaf.zPosition   = CGFloat(i)
+            node.addChild(leaf)
+        }
+
+        return node
     }
 
     // MARK: - 時間帯ライティング

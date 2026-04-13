@@ -50,15 +50,15 @@ enum IsoTileTextureGenerator {
             switch style {
             case .grassBright:
                 drawGrass(cg, w: w, h: h,
-                          base: UIColor(red: 0.54, green: 0.83, blue: 0.42, alpha: 1),
+                          base: UIColor(red: 0.44, green: 0.82, blue: 0.32, alpha: 1),
                           bright: true)
             case .grassMid:
                 drawGrass(cg, w: w, h: h,
-                          base: UIColor(red: 0.44, green: 0.73, blue: 0.32, alpha: 1),
+                          base: UIColor(red: 0.34, green: 0.70, blue: 0.24, alpha: 1),
                           bright: false)
             case .grassDark:
                 drawGrass(cg, w: w, h: h,
-                          base: UIColor(red: 0.35, green: 0.62, blue: 0.24, alpha: 1),
+                          base: UIColor(red: 0.25, green: 0.56, blue: 0.16, alpha: 1),
                           bright: false)
             case .road:
                 drawRoad(cg, w: w, h: h)
@@ -76,20 +76,28 @@ enum IsoTileTextureGenerator {
         cg.setFillColor(base.cgColor)
         cg.fill(CGRect(x: 0, y: 0, width: w, height: h))
 
-        // アイソメトリックの「手前上」ハイライト（奥行き感）
+        // アイソメトリック面の左半分を若干明るく（上面の光源方向: 左上から）
+        cg.setFillColor(UIColor.white.withAlphaComponent(0.09).cgColor)
+        cg.fill(CGRect(x: 0, y: 0, width: w * 0.50, height: h))
+
+        // 右半分を若干暗く（陰面）
+        cg.setFillColor(UIColor.black.withAlphaComponent(0.07).cgColor)
+        cg.fill(CGRect(x: w * 0.50, y: 0, width: w * 0.50, height: h))
+
+        // brightタイル追加ハイライト（中央広場寄り）
         if bright {
             cg.setFillColor(UIColor.white.withAlphaComponent(0.10).cgColor)
-            cg.fill(CGRect(x: w * 0.50, y: 0, width: w * 0.50, height: h * 0.50))
+            cg.fill(CGRect(x: w * 0.15, y: 0, width: w * 0.70, height: h * 0.45))
         }
 
         // 暗い草ドット（固定パターン: ランダム不使用で再現性確保）
-        cg.setFillColor(UIColor.black.withAlphaComponent(0.18).cgColor)
+        cg.setFillColor(UIColor.black.withAlphaComponent(0.22).cgColor)
         for (px, py) in darkDots {
             cg.fill(CGRect(x: px * w - 1, y: py * h - 1, width: 2, height: 2))
         }
 
         // 明るい草ドット
-        cg.setFillColor(UIColor.white.withAlphaComponent(0.14).cgColor)
+        cg.setFillColor(UIColor.white.withAlphaComponent(0.18).cgColor)
         for (px, py) in lightDots {
             cg.fill(CGRect(x: px * w - 1, y: py * h - 1, width: 2, height: 2))
         }

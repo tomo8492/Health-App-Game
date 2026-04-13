@@ -54,8 +54,43 @@ final class BuildingNode: SKSpriteNode {
 
         self.isUserInteractionEnabled = true
         setupDropShadow()
+        addIsoWallFace()
         updateZPosition()
         playIdleAnimation()
+    }
+
+    // MARK: - アイソメトリック壁面（3D 深度感）
+
+    private func addIsoWallFace() {
+        // 建物スプライト底辺（y = −40）から下に伸びる「南面壁」
+        // 平行四辺形: 右方向オフセット isoLean でアイソメ的な奥行きを表現
+        let wallWidth: CGFloat = 52
+        let wallDepth: CGFloat = 16
+        let isoLean:   CGFloat =  6   // 右下方向（アイソメ南面）
+
+        let path = CGMutablePath()
+        path.move(to:    CGPoint(x: -wallWidth / 2,            y:  0))
+        path.addLine(to: CGPoint(x:  wallWidth / 2,            y:  0))
+        path.addLine(to: CGPoint(x:  wallWidth / 2 + isoLean,  y: -wallDepth))
+        path.addLine(to: CGPoint(x: -wallWidth / 2 + isoLean,  y: -wallDepth))
+        path.closeSubpath()
+
+        // 軸カラーを暗く調整して「日陰面」を表現
+        let base = axis.skColor
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        base.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let wallColor = UIColor(hue: h,
+                                saturation: min(1.0, s + 0.06),
+                                brightness: b * 0.46,
+                                alpha: 0.93)
+
+        let wall = SKShapeNode(path: path)
+        wall.fillColor   = wallColor
+        wall.strokeColor = UIColor.black.withAlphaComponent(0.24)
+        wall.lineWidth   = 0.6
+        wall.position    = CGPoint(x: 0, y: -40)   // スプライト底辺
+        wall.zPosition   = -1                        // スプライト背後・シャドウ前面
+        addChild(wall)
     }
 
     // MARK: - ドロップシャドウ
