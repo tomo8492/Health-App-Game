@@ -104,7 +104,51 @@ final class CityScene: SKScene {
         renderMap()
         renderRoads()
         placeInitialBuildings()
+        setupPlazaDecorations()
         placeDecorations()
+    }
+
+    // MARK: - 中央広場の装飾配置（噴水・街灯・ベンチ）
+
+    private func setupPlazaDecorations() {
+        guard let map = parsedMap else { return }
+        let c = map.width / 2   // 中心グリッド座標（デフォルト 10）
+
+        // ── 噴水（市庁舎の南2マス） ─────────────────────────────────────
+        addPlazaDecoration(.fountain, gridX: c, gridY: c + 2, map: map, zBump: 4)
+
+        // ── 街灯（メイン道路上、市庁舎から 3 マス離れた 4 点） ──────────
+        let lightGrid: [(Int, Int)] = [
+            (c - 3, c), (c + 3, c),   // 横道路
+            (c, c - 3), (c, c + 3),   // 縦道路
+        ]
+        for (gx, gy) in lightGrid {
+            addPlazaDecoration(.streetlight, gridX: gx, gridY: gy, map: map, zBump: 3)
+        }
+
+        // ── ベンチ（広場の 4 隅、2 マス離れ） ──────────────────────────
+        let benchGrid: [(Int, Int, BenchFacing)] = [
+            (c - 2, c - 2, .northEast),
+            (c + 2, c - 2, .northWest),
+            (c - 2, c + 2, .southEast),
+            (c + 2, c + 2, .southWest),
+        ]
+        for (gx, gy, facing) in benchGrid {
+            addPlazaDecoration(.bench(facing: facing), gridX: gx, gridY: gy, map: map, zBump: 2)
+        }
+    }
+
+    private func addPlazaDecoration(_ type: PlazaDecorationType,
+                                     gridX: Int, gridY: Int,
+                                     map: ParsedMap, zBump: CGFloat) {
+        let pos = TiledMapParser.isoToScreen(
+            x: gridX, y: gridY,
+            tileWidth: CGFloat(map.tileWidth), tileHeight: CGFloat(map.tileHeight)
+        )
+        let node = PlazaDecorationNode(type: type)
+        node.position  = pos
+        node.zPosition = CGFloat(gridX + gridY) + zBump
+        buildingLayer.addChild(node)
     }
 
     /// アイソメトリックタイルをプログラムで描画

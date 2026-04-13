@@ -203,18 +203,44 @@ final class BuildingRegistry {
         }
     }
 
-    // MARK: - 道路生成（中心から各建物へ）
+    // MARK: - 道路生成（中心から各建物へ L 字接続）
 
-    /// 市庁舎から各建物への経路を「道路グリッド」として返す
+    /// 市庁舎 → 各建物への道路グリッドを返す
+    /// メインの十字道路 + 各建物から最寄りの幹線道路への L 字接続
     func roadCells() -> Set<String> {
         var roads: Set<String> = []
         let center = mapSize / 2
 
-        // 十字の基本道路
+        // ── 基本十字道路 ────────────────────────────────────────────────
         for i in 0..<mapSize {
-            roads.insert("\(center),\(i)")
-            roads.insert("\(i),\(center)")
+            roads.insert("\(center),\(i)")   // 縦（x=center を通る）
+            roads.insert("\(i),\(center)")   // 横（y=center を通る）
         }
+
+        // ── 各建物から幹線道路への L 字接続 ────────────────────────────
+        for b in placed {
+            let bx = b.gridX, by = b.gridY
+            // 幹線道路（x=center 縦 / y=center 横）までの距離
+            let distToVertical   = abs(bx - center)
+            let distToHorizontal = abs(by - center)
+
+            if distToHorizontal <= distToVertical {
+                // 横道路（y=center）が近い: まず縦に y=center まで伸ばす
+                let yRange = by < center ? (by...center) : (center...by)
+                for y in yRange { roads.insert("\(bx),\(y)") }
+                // 次に横道路沿いに center まで（重複挿入は Set が吸収）
+                let xRange = bx < center ? (bx...center) : (center...bx)
+                for x in xRange { roads.insert("\(x),\(center)") }
+            } else {
+                // 縦道路（x=center）が近い: まず横に x=center まで伸ばす
+                let xRange = bx < center ? (bx...center) : (center...bx)
+                for x in xRange { roads.insert("\(x),\(by)") }
+                // 次に縦道路沿いに center まで
+                let yRange = by < center ? (by...center) : (center...by)
+                for y in yRange { roads.insert("\(center),\(y)") }
+            }
+        }
+
         return roads
     }
 }
