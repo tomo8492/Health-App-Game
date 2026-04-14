@@ -37,6 +37,8 @@ final class CityScene: SKScene {
     // MARK: - ライフサイクル
 
     override func didMove(to view: SKView) {
+        // coordinator の scene 参照を自身に設定（双方向通信に必要）
+        coordinator?.scene = self
         setupScene()
         setupMap()      // parsedMap を先にセットしてからカメラ初期位置を決定
         setupCamera()
