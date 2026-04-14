@@ -10,7 +10,7 @@ import SwiftUI
 
 // MARK: - Achievement Model
 
-struct Achievement: Identifiable, Sendable {
+struct Achievement: Identifiable, Equatable, Sendable {
     let id:          String
     let title:       String
     let description: String
@@ -61,7 +61,7 @@ enum AchievementCategory: String, CaseIterable, Sendable {
 
 // MARK: - Achievement Condition
 
-enum AchievementCondition: Sendable {
+enum AchievementCondition: Equatable, Sendable {
     case totalCPReached(Int)          // 累計 CP が N 以上
     case streakDays(Int)              // 連続記録 N 日
     case singleDayCP(Int)             // 1日 CP が N 以上
