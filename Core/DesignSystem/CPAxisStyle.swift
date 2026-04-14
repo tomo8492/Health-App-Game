@@ -7,7 +7,8 @@ import SwiftUI
 
 // MARK: - CPAxis
 
-enum CPAxis: CaseIterable {
+enum CPAxis: String, CaseIterable, Identifiable {
+    var id: String { rawValue }
     case exercise
     case diet
     case alcohol

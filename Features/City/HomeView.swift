@@ -75,7 +75,7 @@ struct HomeView: View {
     private func makeScene(size: CGSize) -> CityScene {
         if let s = cachedScene { return s }
         let s = CityScene(size: size)
-        s.scaleMode  = .aspectFill
+        s.scaleMode  = .resizeFill
         s.coordinator = coordinator
         cachedScene  = s
         return s

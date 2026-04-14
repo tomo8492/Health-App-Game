@@ -15,7 +15,7 @@ private struct AStarNode: Hashable {
     var g: Int    // スタートからのコスト
     var h: Int    // ゴールまでの推定コスト（マンハッタン距離）
     var f: Int { g + h }
-    var parent: AStarNode?
+    // parent は再帰的 struct になるため別途 parentMap で管理
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(x); hasher.combine(y)
@@ -43,6 +43,7 @@ enum NPCPathfinder {
 
         var openList:   [AStarNode] = []
         var closedSet:  Set<AStarNode> = []
+        var parentMap:  [AStarNode: AStarNode] = [:]  // 再帰 struct を避けるため親を別管理
 
         let startNode = AStarNode(x: start.x, y: start.y,
                                   g: 0, h: manhattan(start, goal))
@@ -54,7 +55,7 @@ enum NPCPathfinder {
             let current     = openList.remove(at: currentIdx)
 
             if current.x == goal.x && current.y == goal.y {
-                return reconstructPath(current)
+                return reconstructPath(current, parentMap: parentMap)
             }
 
             closedSet.insert(current)
@@ -64,14 +65,14 @@ enum NPCPathfinder {
                 let tentativeG = current.g + 1
                 if let existingIdx = openList.firstIndex(of: neighbor) {
                     if tentativeG < openList[existingIdx].g {
-                        openList[existingIdx].g      = tentativeG
-                        openList[existingIdx].parent = current
+                        openList[existingIdx].g = tentativeG
+                        parentMap[openList[existingIdx]] = current
                     }
                 } else {
                     var newNode = neighbor
-                    newNode.g      = tentativeG
-                    newNode.h      = manhattan((neighbor.x, neighbor.y), goal)
-                    newNode.parent = current
+                    newNode.g = tentativeG
+                    newNode.h = manhattan((neighbor.x, neighbor.y), goal)
+                    parentMap[newNode] = current
                     openList.append(newNode)
                 }
             }
@@ -95,12 +96,12 @@ enum NPCPathfinder {
         abs(a.x - b.x) + abs(a.y - b.y)
     }
 
-    private static func reconstructPath(_ node: AStarNode) -> [(x: Int, y: Int)] {
+    private static func reconstructPath(_ node: AStarNode, parentMap: [AStarNode: AStarNode]) -> [(x: Int, y: Int)] {
         var path: [(x: Int, y: Int)] = []
         var current: AStarNode? = node
         while let c = current {
             path.append((x: c.x, y: c.y))
-            current = c.parent
+            current = parentMap[c]
         }
         return path.reversed()
     }

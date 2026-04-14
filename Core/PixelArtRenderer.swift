@@ -609,14 +609,14 @@ enum PixelArtRenderer {
         cg.setLineWidth(0.7)
         for floor in 1..<floors {
             let y = baseY - CGFloat(floor) * floorH
-            // 左面のフロアライン（アイソメに沿った斜線）
-            let leftRatio = CGFloat(floor) / CGFloat(floors)
-            cg.move(to: CGPoint(x: 0,   y: y - (tileH/2) * leftRatio))
+            // 左面のフロアライン: 右端 (w/2, y) → 左端 (0, y - tileH/2)
+            // アイソメ左面は下端から tileH/2 だけ上にオフセットされた平行四辺形
+            cg.move(to: CGPoint(x: 0,   y: y - tileH/2))
             cg.addLine(to: CGPoint(x: w/2, y: y))
             cg.strokePath()
-            // 右面のフロアライン
+            // 右面のフロアライン: 左端 (w/2, y) → 右端 (w, y - tileH/2)
             cg.move(to: CGPoint(x: w/2, y: y))
-            cg.addLine(to: CGPoint(x: w,   y: y - (tileH/2) * leftRatio))
+            cg.addLine(to: CGPoint(x: w,   y: y - tileH/2))
             cg.strokePath()
         }
     }

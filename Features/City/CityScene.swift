@@ -37,6 +37,8 @@ final class CityScene: SKScene {
     // MARK: - ライフサイクル
 
     override func didMove(to view: SKView) {
+        // coordinator の scene 参照を自身に設定（双方向通信に必要）
+        coordinator?.scene = self
         setupScene()
         setupMap()      // parsedMap を先にセットしてからカメラ初期位置を決定
         setupCamera()
@@ -57,7 +59,7 @@ final class CityScene: SKScene {
 
     private func setupCamera() {
         camera = cameraNode
-        cameraNode.setScale(1.0)
+        cameraNode.setScale(0.5)   // 俯瞰: スケール低いほどズームアウト
         addChild(cameraNode)
         // マップ中心を起動時の初期表示位置に設定（setupMap() の後に呼ぶこと）
         if let map = parsedMap {
@@ -586,7 +588,7 @@ final class CityScene: SKScene {
             tileHeight: CGFloat(map.tileHeight)
         )
         let move  = SKAction.move(to: center, duration: 0.45)
-        let scale = SKAction.scale(to: 1.0,   duration: 0.45)
+        let scale = SKAction.scale(to: 0.5, duration: 0.45)  // 全体図に戻す
         move.timingMode  = .easeInEaseOut
         scale.timingMode = .easeInEaseOut
         cameraNode.run(SKAction.group([move, scale]))
@@ -662,7 +664,7 @@ final class CityScene: SKScene {
     @objc private func handlePinch(_ g: UIPinchGestureRecognizer) {
         switch g.state {
         case .began:    lastScale = cameraNode.xScale
-        case .changed:  cameraNode.setScale((lastScale / g.scale).clamped(to: 0.4...2.5))
+        case .changed:  cameraNode.setScale((lastScale * g.scale).clamped(to: 0.2...2.0))
         default: break
         }
     }
