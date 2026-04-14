@@ -27,7 +27,8 @@ final class CityScene: SKScene {
     private var npcs: [NPCNode] = []
     private var currentWeather: WeatherType = .sunny
     private var weatherEmitter: SKNode?    // SKEmitterNode or programmatic rain node
-    private var buildings: [BuildingNode] = []
+    private var buildings:     [BuildingNode] = []
+    private var penaltyNodes: [BuildingNode] = []  // B029/B030 ペナルティ建物（過飲時に自動出現）
 
     // MARK: - カメラ
 
@@ -319,6 +320,78 @@ final class CityScene: SKScene {
                 .filter { $0.buildingId == "B025" }
                 .forEach { $0.addXP(max(1, xp / 5)) }
         }
+    }
+
+    // MARK: - ペナルティ建物（B029居酒屋・B030廃墟ビル / CLAUDE.md Key Rule 2）
+
+    /// 飲酒数に応じてペナルティ建物を表示 / 非表示にする（CitySceneCoordinator から呼ぶ）
+    func updatePenaltyBuildings(drinkCount: Int) {
+        if drinkCount >= 5 {
+            spawnPenaltyBuildings()
+        } else {
+            removePenaltyBuildings()
+        }
+    }
+
+    /// B029（居酒屋）+ B030（廃墟ビル）を飲酒ゾーン付近に出現させる
+    private func spawnPenaltyBuildings() {
+        guard penaltyNodes.isEmpty, let map = parsedMap else { return }
+        let cx = map.width / 2, cy = map.height / 2
+        // 飲酒ゾーン（findBestPosition の alcohol オフセット: -4, +2）付近
+        let positions: [(id: String, name: String, dx: Int, dy: Int)] = [
+            ("B029", "居酒屋",   -5, 2),
+            ("B030", "廃墟ビル", -6, 3)
+        ]
+        for p in positions {
+            let gx = max(0, min(cx + p.dx, map.width  - 1))
+            let gy = max(0, min(cy + p.dy, map.height - 1))
+            let pos = TiledMapParser.isoToScreen(
+                x: gx, y: gy,
+                tileWidth:  CGFloat(map.tileWidth),
+                tileHeight: CGFloat(map.tileHeight)
+            )
+            let node = BuildingNode(
+                buildingId:   p.id,
+                buildingName: p.name,
+                axis:         .alcohol,
+                gridX:        gx,
+                gridY:        gy
+            )
+            node.position  = pos
+            node.zPosition = CGFloat(gx + gy) * 0.1 + 0.02
+            node.alpha     = 0
+            buildingLayer.addChild(node)
+            penaltyNodes.append(node)
+
+            // フェードイン + 揺れ演出（ペナルティ感）
+            node.run(SKAction.sequence([
+                SKAction.wait(forDuration: Double(penaltyNodes.count) * 0.4),
+                SKAction.group([
+                    SKAction.fadeIn(withDuration: 0.6),
+                    SKAction.sequence([
+                        SKAction.rotate(byAngle: 0.06, duration: 0.1),
+                        SKAction.rotate(byAngle: -0.12, duration: 0.2),
+                        SKAction.rotate(byAngle: 0.06, duration: 0.1)
+                    ])
+                ]),
+                SKAction.run { node.playIdleAnimation() }
+            ]))
+        }
+    }
+
+    /// ペナルティ建物をフェードアウトして除去する
+    private func removePenaltyBuildings() {
+        guard !penaltyNodes.isEmpty else { return }
+        for node in penaltyNodes {
+            node.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.fadeOut(withDuration: 0.5),
+                    SKAction.scale(to: 0.1, duration: 0.5)
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
+        penaltyNodes.removeAll()
     }
 
     // MARK: - CP 加算エフェクト

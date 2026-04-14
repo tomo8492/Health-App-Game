@@ -108,6 +108,10 @@ struct RootView: View {
         .onChange(of: appState.todaySteps) { _, steps in
             cityCoordinator.updateStepCount(steps)
         }
+        // 飲酒数変化を街のペナルティ建物へ同期（CLAUDE.md Key Rule 2: B029/B030）
+        .onChange(of: appState.todayDrinkCount) { _, count in
+            cityCoordinator.syncAlcohol(drinkCount: count)
+        }
         // プレミアム解放を街へ反映
         .onChange(of: appState.isPremium) { _, premium in
             if premium { cityCoordinator.unlockPremium() }

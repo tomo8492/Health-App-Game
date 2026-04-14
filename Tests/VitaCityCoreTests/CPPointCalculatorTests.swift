@@ -119,10 +119,21 @@ struct SleepCPTests {
         #expect(CPPointCalculator.sleepCP(hours: 8.5) == 100)
     }
 
+    @Test("9 時間ちょうど → 100 CP（理想範囲の上限、「超」ではない）")
+    func exactlyNineHours() {
+        #expect(CPPointCalculator.sleepCP(hours: 9.0) == 100)
+    }
+
     @Test("9 時間超 → 80 CP（寝すぎ）")
     func oversleep() {
         #expect(CPPointCalculator.sleepCP(hours: 9.5) == 80)
         #expect(CPPointCalculator.sleepCP(hours: 10.0) == 80)
+    }
+
+    @Test("9.0 超えの最小値 → 80 CP（境界値チェック）")
+    func justAboveNineHours() {
+        // 9.0 はちょうど理想範囲内、それを超えた値は寝すぎ
+        #expect(CPPointCalculator.sleepCP(hours: 9.01) == 80)
     }
 
     @Test("6 時間台 → 60 CP")

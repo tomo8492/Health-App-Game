@@ -225,9 +225,11 @@ struct RecordDashboardView: View {
             Task {
                 await viewModel.load()
                 // 記録保存後に AppState を更新 → RootView の onChange → 街・実績・ウィジェット反映 ★
-                appState.todayRecord  = viewModel.todayRecord
-                appState.todayTotalCP = viewModel.totalCP
-                appState.todayStreak  = viewModel.streak
+                appState.todayRecord     = viewModel.todayRecord
+                appState.todayTotalCP    = viewModel.totalCP
+                appState.todayStreak     = viewModel.streak
+                // 飲酒数を同期 → B029/B030 ペナルティ建物トリガー（CLAUDE.md Key Rule 2）
+                appState.todayDrinkCount = viewModel.todayRecord?.alcoholLogs.last?.drinkCount ?? -1
             }
         }
     }

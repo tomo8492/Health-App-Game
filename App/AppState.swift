@@ -24,19 +24,23 @@ final class AppState {
 
     // MARK: - 今日の記録
 
-    var todayRecord:  DailyRecord? = nil
-    var todayTotalCP: Int          = 0   // 明示的に管理（computed だと @Model の変更を追跡しない）
-    var todayStreak:  Int          = 0
+    var todayRecord:    DailyRecord? = nil
+    var todayTotalCP:   Int          = 0   // 明示的に管理（computed だと @Model の変更を追跡しない）
+    var todayStreak:    Int          = 0
+    /// 今日の飲酒数（-1=未記録, 0=禁酒, 1+=飲酒）— B029/B030 ペナルティ建物トリガー用
+    var todayDrinkCount: Int         = -1
 
     // MARK: - 今日の記録をリフレッシュ（起動時・記録保存後に呼ぶ）
 
     func refreshTodayRecord(streakManager: StreakManager) async {
         do {
-            let record   = try await streakManager.todayRecord()
-            let streak   = try await streakManager.currentStreak()
-            todayRecord  = record
-            todayTotalCP = record.totalCP
-            todayStreak  = streak
+            let record      = try await streakManager.todayRecord()
+            let streak      = try await streakManager.currentStreak()
+            todayRecord     = record
+            todayTotalCP    = record.totalCP
+            todayStreak     = streak
+            // alcoholLogs が空の場合は -1（未記録）、記録あれば drinkCount を使用
+            todayDrinkCount = record.alcoholLogs.last?.drinkCount ?? -1
         } catch {
             self.error = .dataLoadFailed(error.localizedDescription)
         }

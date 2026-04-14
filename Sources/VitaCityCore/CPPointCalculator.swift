@@ -123,7 +123,7 @@ public enum CPPointCalculator {
     ///   5 時間以下 = 20 CP
     public static func sleepCP(hours: Double) -> Int {
         switch hours {
-        case 7.0..<9.0: return 100
+        case 7.0...9.0: return 100  // 9.0 時間ちょうどは「理想」扱い（"9時間超"が寝すぎ）
         case 9.0...:    return 80
         case 6.0..<7.0: return 60
         case 5.0..<6.0: return 20
