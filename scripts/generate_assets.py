@@ -36,7 +36,7 @@ OUT = {
 
 # ── スタイル定数（全アセット共通）────────────────────────────────
 BASE_STYLE = (
-    "isometric pixel art, Showa-era Japanese modern city, "
+    "isometric pixel art, late Showa to early Heisei era Japan (1985-1995), "
     "warm retro colors, clean pixel edges, game asset, "
     "transparent background, 2:1 isometric perspective"
 )
