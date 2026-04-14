@@ -9,7 +9,8 @@ import SwiftUI
 
 struct CityManagementView: View {
 
-    @Environment(AppState.self) private var appState
+    @Environment(AppState.self)              private var appState
+    @Environment(CitySceneCoordinator.self)  private var coordinator
     @State private var selectedAxis: CPAxis? = nil
     @State private var selectedBuilding: BuildingCatalogEntry? = nil
 
@@ -45,8 +46,16 @@ struct CityManagementView: View {
         VStack(spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("VITA CITY")
-                        .font(.title2.bold())
+                    HStack(spacing: 6) {
+                        Text("VITA CITY")
+                            .font(.title2.bold())
+                        // 街レベルバッジ
+                        Text("Lv.\(coordinator.cityLevel)")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .foregroundStyle(.white)
+                            .background(Color.vcCP, in: Capsule())
+                    }
                     Text("建物 28 種 + 自動生成 2 種")
                         .font(.caption)
                         .foregroundStyle(Color.vcSecondaryLabel)
@@ -313,6 +322,9 @@ struct BuildingCatalogDetailSheet: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
 
+                    // 建物ボーナス表示
+                    buildingBonusView
+
                     // 建設ボタン / ステータス
                     buildSection
 
@@ -326,6 +338,41 @@ struct BuildingCatalogDetailSheet: View {
                     Button("閉じる") { dismiss() }
                 }
             }
+        }
+    }
+
+    // MARK: - 建物ボーナス表示
+
+    @ViewBuilder
+    private var buildingBonusView: some View {
+        let bonus = BuildingBonusCalculator.bonus(for: entry.axis, builtIds: [entry.id])
+        if bonus > 0 {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(entry.axis.color)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("建物ボーナス")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.vcSecondaryLabel)
+                    Text(entry.axis.name + "軸 +\(bonus) CP")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(entry.axis.color)
+                }
+                Spacer()
+                Text(coordinator.builtBuildingIds.contains(entry.id) ? "有効中" : "建設で有効")
+                    .font(.caption2)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .foregroundStyle(coordinator.builtBuildingIds.contains(entry.id) ? .white : entry.axis.color)
+                    .background(
+                        coordinator.builtBuildingIds.contains(entry.id)
+                            ? entry.axis.color
+                            : entry.axis.color.opacity(0.12),
+                        in: Capsule()
+                    )
+            }
+            .padding(12)
+            .background(entry.axis.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal)
         }
     }
 

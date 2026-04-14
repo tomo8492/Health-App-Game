@@ -119,7 +119,10 @@ final class CitySceneCoordinator {
         totalCP = min(totalCP + amount, 999_999)
         todayCP = min(todayCP + amount, 500)
         scene?.onCPAdded(axis: axis, amount: amount)
-        scene?.addXPToBuildings(axis: axis, amount: amount)
+        // 建物ボーナスを XP ブーストとして適用（建設済み建物が多いほど建物が速くレベルアップ）
+        let boost = BuildingBonusCalculator.xpBoostMultiplier(for: axis, builtIds: builtBuildingIds)
+        let boostedXP = Int(Double(amount) * boost)
+        scene?.addXPToBuildings(axis: axis, amount: boostedXP)
         updateWeather()
         updateNPCCount()
         checkMapExpansion()
@@ -145,6 +148,25 @@ final class CitySceneCoordinator {
     /// カメラをマップ中心・等倍にリセット（全体図ボタンから呼ぶ: CLAUDE.md Key Rule 9）
     func resetCamera() {
         scene?.resetCameraToCenter()
+    }
+
+    // MARK: - 建物ボーナス（BuildingBonusCalculator 委譲）
+
+    /// 建設済み建物による軸別ボーナス CP（0〜20）
+    /// 記録画面の previewCP に加算して「建物の恩恵」を可視化する
+    func bonusCP(for axis: CPAxis) -> Int {
+        BuildingBonusCalculator.bonus(for: axis, builtIds: builtBuildingIds)
+    }
+
+    // MARK: - 飲酒ペナルティ建物（CLAUDE.md Key Rule 2）
+
+    /// 飲酒数に応じて B029/B030 ペナルティ建物を表示 / 非表示にする
+    /// drinkCount >= 5（過飲）→ 居酒屋・廃墟ビルを自動出現
+    /// drinkCount < 5（記録あり）→ ペナルティ建物を除去
+    /// drinkCount == -1（未記録）→ 何もしない
+    func syncAlcohol(drinkCount: Int) {
+        guard drinkCount >= 0 else { return }   // -1（未記録）は無視
+        scene?.updatePenaltyBuildings(drinkCount: drinkCount)
     }
 
     // MARK: - 天気更新（todayCP 0〜500 から天気を決定）
@@ -173,6 +195,26 @@ final class CitySceneCoordinator {
     private func updateNPCCount() {
         npcCount = min(totalCP / 100 + 1, 20)
         scene?.updateNPCCount(npcCount)
+        updateCityLevel()
+    }
+
+    // MARK: - 街レベル更新（累計 CP → Lv1〜10）
+
+    private func updateCityLevel() {
+        let newLevel: Int
+        switch totalCP {
+        case 50_000...: newLevel = 10
+        case 30_000...: newLevel =  9
+        case 20_000...: newLevel =  8
+        case 15_000...: newLevel =  7
+        case 10_000...: newLevel =  6
+        case 7_000...:  newLevel =  5
+        case 5_000...:  newLevel =  4
+        case 3_000...:  newLevel =  3
+        case 1_000...:  newLevel =  2
+        default:        newLevel =  1
+        }
+        cityLevel = newLevel
     }
 
     // MARK: - マップ拡張チェック（CLAUDE.md Key Rule 6: 累計 CP 基準）
