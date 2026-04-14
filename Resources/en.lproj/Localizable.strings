@@ -1,0 +1,122 @@
+/* Localizable.strings — English (en)
+   VITA CITY
+*/
+
+// MARK: - Tab Names
+"tab.home"          = "Home";
+"tab.record"        = "Log";
+"tab.statistics"    = "Stats";
+"tab.city"          = "City";
+"tab.achievements"  = "Badges";
+
+// MARK: - Health Axis Labels
+"axis.exercise"     = "Exercise";
+"axis.diet"         = "Diet";
+"axis.alcohol"      = "Alcohol";
+"axis.sleep"        = "Sleep";
+"axis.lifestyle"    = "Lifestyle";
+
+// MARK: - CP Units / Display
+"cp.unit"           = "CP";
+"cp.today"          = "Today's CP";
+"cp.total"          = "Total CP";
+"cp.max_per_day"    = "Max 500 CP/day";
+
+// MARK: - Streak
+"streak.label"      = "Streak";
+"streak.days"       = "%d days";
+"streak.unit"       = "days";
+"streak.best"       = "Best streak";
+
+// MARK: - City View
+"city.level"        = "City Level";
+"city.npc_count"    = "%d residents";
+"city.population"   = "Population";
+"city.expand"       = "Expand Map";
+
+// MARK: - Buildings
+"building.build"    = "Build";
+"building.upgrade"  = "Upgrade";
+"building.cost"     = "Cost: %d CP";
+"building.level"    = "Lv.%d";
+"building.bonus"    = "Building Bonus";
+"building.bonus_active"   = "Active";
+"building.bonus_inactive" = "Build to Activate";
+
+// MARK: - Record Dashboard
+"record.today"      = "Today's Log";
+"record.exercise"   = "Exercise Log";
+"record.diet"       = "Diet Log";
+"record.alcohol"    = "Alcohol Log";
+"record.sleep"      = "Sleep Log";
+"record.lifestyle"  = "Lifestyle Log";
+"record.save"       = "Save";
+"record.saved"      = "Saved";
+
+// MARK: - Diet
+"diet.breakfast"    = "Breakfast";
+"diet.lunch"        = "Lunch";
+"diet.dinner"       = "Dinner";
+"diet.snack"        = "Snack";
+"diet.balanced"     = "Balanced";
+
+// MARK: - Alcohol
+"alcohol.none"      = "Alcohol-free";
+"alcohol.moderate"  = "Moderate";
+"alcohol.over"      = "Over the limit";
+"alcohol.drinks"    = "%d drinks";
+
+// MARK: - Sleep
+"sleep.hours"       = "%g hrs";
+"sleep.ideal"       = "Ideal sleep (7–9 hours)";
+"sleep.auto"        = "Auto-imported from HealthKit";
+
+// MARK: - Lifestyle
+"lifestyle.water"   = "Hydration (8 glasses)";
+"lifestyle.stress"  = "Stress management";
+"lifestyle.habit"   = "Habit completion";
+
+// MARK: - HealthKit Permission
+"healthkit.request_title"   = "Connect to Apple Health";
+"healthkit.request_message" = "Allow VITA CITY to read your steps, workouts, and sleep data to automatically calculate your Health Points.";
+"healthkit.allow"           = "Allow";
+"healthkit.skip"            = "Skip";
+
+// MARK: - Statistics
+"stats.weekly"      = "This Week";
+"stats.monthly"     = "This Month";
+"stats.yearly"      = "This Year";
+"stats.average"     = "Average";
+"stats.trend"       = "Trend";
+
+// MARK: - Achievements
+"achievement.unlocked"    = "Unlocked!";
+"achievement.locked"      = "Locked";
+"achievement.progress"    = "%d%% progress";
+"achievement.unlocked_at" = "Unlocked on %@";
+
+// MARK: - Premium
+"premium.title"         = "VITA CITY Premium";
+"premium.description"   = "Unlimited history, statistics charts, and large widgets";
+"premium.buy"           = "Buy Once, Own Forever";
+"premium.restore"       = "Restore Purchase";
+"premium.already_owned" = "Already purchased";
+
+// MARK: - Notifications
+"notification.daily_reminder_title" = "Time to log your health";
+"notification.daily_reminder_body"  = "VITA CITY is waiting for today's record 🌆";
+
+// MARK: - Errors
+"error.general"         = "Something went wrong";
+"error.healthkit"       = "Could not connect to HealthKit";
+"error.save_failed"     = "Failed to save";
+"error.purchase_failed" = "Purchase failed";
+"error.retry"           = "Retry";
+
+// MARK: - Common
+"common.ok"     = "OK";
+"common.cancel" = "Cancel";
+"common.close"  = "Close";
+"common.done"   = "Done";
+"common.edit"   = "Edit";
+"common.delete" = "Delete";

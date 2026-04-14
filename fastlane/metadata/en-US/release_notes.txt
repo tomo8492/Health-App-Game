@@ -1,0 +1,10 @@
+Version 1.0.0 — Initial Release
+
+Welcome to VITA CITY!
+A brand-new health game where your daily habits build a living, breathing pixel-art city.
+
+· 5-axis health logging (Exercise, Diet, Alcohol, Sleep, Lifestyle)
+· Automatic step count and sleep data via HealthKit
+· 28 unique buildings to customize your city
+· 16 achievement badges to unlock
+· WidgetKit Home Screen widget support

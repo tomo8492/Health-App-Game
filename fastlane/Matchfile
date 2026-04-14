@@ -1,0 +1,22 @@
+# Matchfile
+# VITA CITY — コード署名証明書の集中管理（fastlane match）
+#
+# 使用方法:
+#   bundle exec fastlane match appstore   → App Store 配布証明書を同期
+#   bundle exec fastlane match development → 開発証明書を同期
+#   bundle exec fastlane match nuke appstore → 証明書を削除して再生成（緊急時のみ）
+
+git_url("https://github.com/YOUR_ORG/vitacity-certificates")  # 証明書リポジトリ（要変更）
+storage_mode("git")
+type("appstore")
+
+app_identifier([
+    "com.vitacity.app",
+    "com.vitacity.app.widget"
+])
+
+username("developer@example.com")    # Apple ID（要変更）
+team_id("XXXXXXXXXX")               # Apple Developer Team ID（要変更）
+
+# CI 環境では readonly モードを強制（証明書の誤更新防止）
+readonly(true) if ENV["CI"]

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- MARK: - アプリ基本情報 -->
+	<key>CFBundleDisplayName</key>
+	<string>VITA CITY</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.vitacity.app</string>
+	<key>CFBundleName</key>
+	<string>VitaCity</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>ja</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+
+	<!-- MARK: - 対応デバイス・向き（iPhone 縦向き固定: CLAUDE.md）-->
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer><!-- iPhone のみ -->
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+
+	<!-- MARK: - iOS バージョン -->
+	<key>MinimumOSVersion</key>
+	<string>17.0</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+
+	<!-- MARK: - HealthKit 使用説明（必須: App Store 審査要件）-->
+	<key>NSHealthShareUsageDescription</key>
+	<string>VITA CITY は歩数・ワークアウト・睡眠データを読み取り、健康ポイント（CP）の計算に使用します。データはデバイス内にのみ保存され、外部サーバーには送信されません。</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>VITA CITY は健康記録の書き込み権限を使用しません。読み取り専用でご利用いただけます。</string>
+
+	<!-- MARK: - バックグラウンドモード（歩数・カロリーの Observer Query: CLAUDE.md Key Rule 7）-->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+
+	<!-- MARK: - App Transport Security -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+
+	<!-- MARK: - Scene Configuration（SwiftUI App ライフサイクル）-->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+
+	<!-- MARK: - App Group（WidgetKit データ共有: CLAUDE.md Key Rule → group.com.vitacity.app）-->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.vitacity.app</string>
+	</array>
+
+	<!-- MARK: - その他 -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDefault</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+</dict>
+</plist>

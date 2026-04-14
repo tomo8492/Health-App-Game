@@ -1,0 +1,24 @@
+VITA CITY turns your daily health habits into a thriving pixel-art city — the healthier you live, the bigger your city grows.
+
+■ Earn Health Points (CP) across 5 axes
+Log your daily habits in Exercise, Diet, Alcohol control, Sleep, and Lifestyle. Earn up to 500 CP per day and watch your city expand.
+
+■ Build your dream city
+Spend CP to construct buildings — gyms, stadiums, cafes, libraries and 28 types in total. Every structure reflects the healthy choices you make.
+
+■ Seamless Apple Health integration
+Steps, workouts, and sleep data are automatically pulled from HealthKit. Less manual entry, more motivation.
+
+■ Streak bonuses & Achievements
+Consecutive daily logging extends your streak and boosts city growth speed. Unlock 16 achievement badges as milestones.
+
+■ WidgetKit support
+See today's CP progress at a glance from your Home Screen or Lock Screen (small widget free; medium & large with Premium).
+
+■ Premium — one-time purchase
+Unlimited data history, detailed statistics charts, and medium/large widgets — all unlocked with a single purchase.
+
+[Notes]
+· Apple Health (HealthKit) permission is required for step count and sleep data.
+· All health data is stored on-device only and is never sent to external servers.
+· This app does not provide medical advice.

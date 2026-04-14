@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- HealthKit: 歩数・ワークアウト・睡眠データ読み取り（CLAUDE.md Key Rule 7）-->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array>
+		<string>health-records</string>
+	</array>
+
+	<!-- App Group: WidgetKit との SwiftData / UserDefaults 共有（group.com.vitacity.app）-->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.vitacity.app</string>
+	</array>
+
+	<!-- StoreKit2: In-App Purchase（CLAUDE.md Key Rule 3: RevenueCat 不使用）-->
+	<key>com.apple.developer.in-app-payments</key>
+	<array>
+		<string>com.vitacity.premium.lifetime</string>
+	</array>
+
+	<!-- Push Notifications: 日次リマインダー（NotificationService.scheduleDailyReminder）-->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>
