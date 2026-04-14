@@ -48,6 +48,8 @@ targets:
       - Features
       - Infrastructure
       - Resources
+      - path: Resources/PixelArt
+        type: folder   # フォルダ参照（青フォルダ）- PNG そのままバンドル
 
     settings:
       base:

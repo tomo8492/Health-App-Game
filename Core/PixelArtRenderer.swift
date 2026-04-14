@@ -237,31 +237,65 @@ enum PixelArtRenderer {
     /// キャッシュを全消去（アプリ設定変更・テスト用）
     static func invalidateCache() { cache.removeAllObjects() }
 
+    // MARK: - Bundle PNG Loader
+
+    /// Resources/PixelArt/<subdirectory>/<name>.png を SKTexture として読み込む。
+    /// PixelLab.ai で生成した手描きアセットを使う場合に呼ぶ。
+    /// ファイルが存在しない場合は nil を返す（プロシージャル生成へのフォールバック用）。
+    private static func loadBundlePNG(named name: String,
+                                      subdirectory: String,
+                                      cacheKey: String) -> SKTexture? {
+        let nsKey = (cacheKey + "_png") as NSString
+        if let cached = cache.object(forKey: nsKey) { return cached }
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png",
+                                        subdirectory: subdirectory),
+              let image = UIImage(contentsOfFile: url.path) else { return nil }
+        let tex = SKTexture(image: image)
+        tex.filteringMode = .nearest   // ピクセルアートはネイキッド補間なし
+        cache.setObject(tex, forKey: nsKey)
+        return tex
+    }
+
     // MARK: - Ground Tiles
 
     static func grassTile(variant: Int = 0) -> SKTexture {
-        cached("grass\(variant)") {
+        let key = "grass\(variant)"
+        let pngName = variant == 0 ? "tile_grass" : "tile_grass2"
+        if let tex = loadBundlePNG(named: pngName, subdirectory: "PixelArt/tiles", cacheKey: key) { return tex }
+        return cached(key) {
             isoTile(top: UIColor(hex: variant == 0 ? "6BC845" : "59B035"),
                     shadow: UIColor(hex:"3A8A20"), grass: true)
         }
     }
     static func roadTile() -> SKTexture {
-        cached("road") { isoTile(top: UIColor(hex:"B0A890"), shadow: UIColor(hex:"706850"), grass: false, roadMarkings: true) }
+        if let tex = loadBundlePNG(named: "tile_road", subdirectory: "PixelArt/tiles", cacheKey: "road") { return tex }
+        return cached("road") { isoTile(top: UIColor(hex:"B0A890"), shadow: UIColor(hex:"706850"), grass: false, roadMarkings: true) }
     }
     static func sidewalkTile() -> SKTexture {
-        cached("sidewalk") { isoTile(top: UIColor(hex:"D8D0B8"), shadow: UIColor(hex:"989078"), grass: false) }
+        if let tex = loadBundlePNG(named: "tile_sidewalk", subdirectory: "PixelArt/tiles", cacheKey: "sidewalk") { return tex }
+        return cached("sidewalk") { isoTile(top: UIColor(hex:"D8D0B8"), shadow: UIColor(hex:"989078"), grass: false) }
     }
     static func waterTile() -> SKTexture {
-        cached("water") { isoTile(top: UIColor(hex:"5BB8FF"), shadow: UIColor(hex:"2A7AC0"), grass: false) }
+        if let tex = loadBundlePNG(named: "tile_water", subdirectory: "PixelArt/tiles", cacheKey: "water") { return tex }
+        return cached("water") { isoTile(top: UIColor(hex:"5BB8FF"), shadow: UIColor(hex:"2A7AC0"), grass: false) }
     }
     static func sandTile() -> SKTexture {
-        cached("sand") { isoTile(top: UIColor(hex:"F0D890"), shadow: UIColor(hex:"C0A850"), grass: false) }
+        if let tex = loadBundlePNG(named: "tile_sand", subdirectory: "PixelArt/tiles", cacheKey: "sand") { return tex }
+        return cached("sand") { isoTile(top: UIColor(hex:"F0D890"), shadow: UIColor(hex:"C0A850"), grass: false) }
     }
 
     // MARK: - Building Textures
 
+    /// PixelArt/buildings/building_<id>_lv<level>.png があればそちらを使う。
+    /// なければプロシージャル生成にフォールバックする。
     static func buildingTexture(id: String, level: Int) -> SKTexture {
-        cached("bld_\(id)_lv\(level)") {
+        let bundleKey = "bld_\(id)_lv\(level)"
+        if let tex = loadBundlePNG(named: "building_\(id)_lv\(level)",
+                                   subdirectory: "PixelArt/buildings",
+                                   cacheKey: bundleKey) {
+            return tex
+        }
+        return cached(bundleKey) {
             let cfg = BuildingVisualConfig.make(id: id, level: level)
             return isoBuilding(config: cfg, id: id, level: level)
         }
@@ -290,21 +324,39 @@ enum PixelArtRenderer {
 
     // MARK: - NPC Textures
 
+    private static let npcBundleNames: [NPCType: String] = [
+        .adventurer: "npc_worker",
+        .citizen1:   "npc_student",
+        .elder:      "npc_elder",
+        .child:      "npc_child",
+        .citizen2:   "npc_athlete",
+    ]
+
     static func npcTexture(type: NPCType, walkFrame: Int) -> SKTexture {
         let f = walkFrame % 4
-        return cached("npc_\(type.rawValue)_f\(f)") { npcSprite(type: type, frame: f) }
+        let key = "npc_\(type.rawValue)_f\(f)"
+        // フレーム0のみバンドルPNG（歩きアニメはプロシージャル生成を維持）
+        if f == 0, let pngName = npcBundleNames[type],
+           let tex = loadBundlePNG(named: pngName, subdirectory: "PixelArt/npcs", cacheKey: key) {
+            return tex
+        }
+        return cached(key) { npcSprite(type: type, frame: f) }
     }
 
     // MARK: - Tree
 
     static func treeTexture(variant: Int = 0) -> SKTexture {
-        cached("tree\(variant)") { treeSprite(variant: variant) }
+        let key = "tree\(variant)"
+        let pngName = variant == 0 ? "deco_tree_sakura" : "deco_tree_pine"
+        if let tex = loadBundlePNG(named: pngName, subdirectory: "PixelArt/decorations", cacheKey: key) { return tex }
+        return cached(key) { treeSprite(variant: variant) }
     }
 
     // MARK: - Street Decorations
 
     static func streetLampTexture() -> SKTexture {
-        cached("streetlamp") {
+        if let tex = loadBundlePNG(named: "deco_lamp_showa", subdirectory: "PixelArt/decorations", cacheKey: "streetlamp") { return tex }
+        return cached("streetlamp") {
             let w: CGFloat = 8, h: CGFloat = 22
             let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
                 let cg = ctx.cgContext
@@ -332,7 +384,8 @@ enum PixelArtRenderer {
     }
 
     static func benchTexture() -> SKTexture {
-        cached("bench") {
+        if let tex = loadBundlePNG(named: "deco_bench_park", subdirectory: "PixelArt/decorations", cacheKey: "bench") { return tex }
+        return cached("bench") {
             let w: CGFloat = 16, h: CGFloat = 12
             let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
                 let cg = ctx.cgContext
