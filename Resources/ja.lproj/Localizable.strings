@@ -1,0 +1,122 @@
+/* Localizable.strings — 日本語 (ja)
+   VITA CITY
+*/
+
+// MARK: - タブ名
+"tab.home"          = "ホーム";
+"tab.record"        = "記録";
+"tab.statistics"    = "統計";
+"tab.city"          = "街管理";
+"tab.achievements"  = "実績";
+
+// MARK: - 健康軸ラベル
+"axis.exercise"     = "運動";
+"axis.diet"         = "食事";
+"axis.alcohol"      = "飲酒";
+"axis.sleep"        = "睡眠";
+"axis.lifestyle"    = "生活習慣";
+
+// MARK: - CP 単位・表示
+"cp.unit"           = "CP";
+"cp.today"          = "今日の CP";
+"cp.total"          = "累計 CP";
+"cp.max_per_day"    = "1日最大 500CP";
+
+// MARK: - ストリーク
+"streak.label"      = "連続記録";
+"streak.days"       = "%d 日";
+"streak.unit"       = "日";
+"streak.best"       = "最長記録";
+
+// MARK: - 街ビュー
+"city.level"        = "街レベル";
+"city.npc_count"    = "住民 %d 人";
+"city.population"   = "人口";
+"city.expand"       = "マップ拡張";
+
+// MARK: - 建物
+"building.build"    = "建設する";
+"building.upgrade"  = "レベルアップ";
+"building.cost"     = "費用: %d CP";
+"building.level"    = "Lv.%d";
+"building.bonus"    = "建物ボーナス";
+"building.bonus_active"   = "有効中";
+"building.bonus_inactive" = "建設で有効";
+
+// MARK: - 記録ダッシュボード
+"record.today"      = "今日の記録";
+"record.exercise"   = "運動記録";
+"record.diet"       = "食事記録";
+"record.alcohol"    = "飲酒記録";
+"record.sleep"      = "睡眠記録";
+"record.lifestyle"  = "生活習慣記録";
+"record.save"       = "保存する";
+"record.saved"      = "保存しました";
+
+// MARK: - 食事記録
+"diet.breakfast"    = "朝食";
+"diet.lunch"        = "昼食";
+"diet.dinner"       = "夕食";
+"diet.snack"        = "間食";
+"diet.balanced"     = "バランス良し";
+
+// MARK: - 飲酒記録
+"alcohol.none"      = "飲まなかった";
+"alcohol.moderate"  = "適量";
+"alcohol.over"      = "飲み過ぎ";
+"alcohol.drinks"    = "%d 杯";
+
+// MARK: - 睡眠記録
+"sleep.hours"       = "%g 時間";
+"sleep.ideal"       = "理想的な睡眠（7〜9時間）";
+"sleep.auto"        = "HealthKit から自動取得";
+
+// MARK: - 生活習慣記録
+"lifestyle.water"   = "水分補給（8杯）";
+"lifestyle.stress"  = "ストレス管理";
+"lifestyle.habit"   = "習慣達成";
+
+// MARK: - HealthKit 権限
+"healthkit.request_title"   = "HealthKit への接続";
+"healthkit.request_message" = "歩数・ワークアウト・睡眠データを読み取ることで、あなたの健康ポイントを自動計算します。";
+"healthkit.allow"           = "許可する";
+"healthkit.skip"            = "スキップ";
+
+// MARK: - 統計
+"stats.weekly"      = "今週";
+"stats.monthly"     = "今月";
+"stats.yearly"      = "年間";
+"stats.average"     = "平均";
+"stats.trend"       = "トレンド";
+
+// MARK: - 実績
+"achievement.unlocked"  = "解除！";
+"achievement.locked"    = "未解除";
+"achievement.progress"  = "進捗 %d%%";
+"achievement.unlocked_at" = "%@ に解除";
+
+// MARK: - プレミアム
+"premium.title"         = "VITA CITY プレミアム";
+"premium.description"   = "データ無制限保存・統計グラフ・大型ウィジェット";
+"premium.buy"           = "購入する（買い切り）";
+"premium.restore"       = "購入を復元";
+"premium.already_owned" = "購入済みです";
+
+// MARK: - 通知
+"notification.daily_reminder_title" = "今日の健康記録をつけよう";
+"notification.daily_reminder_body"  = "VITA CITY があなたの記録を待っています 🌆";
+
+// MARK: - エラー
+"error.general"         = "エラーが発生しました";
+"error.healthkit"       = "HealthKit に接続できませんでした";
+"error.save_failed"     = "保存に失敗しました";
+"error.purchase_failed" = "購入処理に失敗しました";
+"error.retry"           = "再試行";
+
+// MARK: - 共通
+"common.ok"     = "OK";
+"common.cancel" = "キャンセル";
+"common.close"  = "閉じる";
+"common.done"   = "完了";
+"common.edit"   = "編集";
+"common.delete" = "削除";

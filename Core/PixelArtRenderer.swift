@@ -219,11 +219,23 @@ enum PixelArtRenderer {
     static let tileH: CGFloat = 32
     static let floorH: CGFloat = 20
 
-    private static var cache: [String: SKTexture] = [:]
+    // NSCache: スレッドセーフ + メモリ警告時に自動解放（Dictionary より安全）
+    private static let cache: NSCache<NSString, SKTexture> = {
+        let c = NSCache<NSString, SKTexture>()
+        c.countLimit = 200   // テクスチャ枚数上限（建物30種×5Lv + NPC + タイル + 装飾）
+        return c
+    }()
+
     private static func cached(_ key: String, _ make: () -> SKTexture) -> SKTexture {
-        if let t = cache[key] { return t }
-        let t = make(); cache[key] = t; return t
+        let nsKey = key as NSString
+        if let t = cache.object(forKey: nsKey) { return t }
+        let t = make()
+        cache.setObject(t, forKey: nsKey)
+        return t
     }
+
+    /// キャッシュを全消去（アプリ設定変更・テスト用）
+    static func invalidateCache() { cache.removeAllObjects() }
 
     // MARK: - Ground Tiles
 
