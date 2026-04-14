@@ -100,9 +100,12 @@ final class HealthKitService: HealthKitServiceProtocol {
 
     func fetchLastNightSleep() async throws -> Double {
         guard let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return 0 }
-        let yesterday  = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-        let sleepStart = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: yesterday)!
-        let wakeEnd    = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())!
+        let cal = Calendar.current
+        guard
+            let yesterday  = cal.date(byAdding: .day, value: -1, to: Date()),
+            let sleepStart = cal.date(bySettingHour: 18, minute: 0, second: 0, of: yesterday),
+            let wakeEnd    = cal.date(bySettingHour: 12, minute: 0, second: 0, of: Date())
+        else { return 0 }  // DST 等でカレンダー計算が失敗した場合は 0 時間扱い
         let predicate  = HKQuery.predicateForSamples(withStart: sleepStart, end: wakeEnd, options: .strictStartDate)
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -138,6 +141,11 @@ final class HealthKitService: HealthKitServiceProtocol {
             }
         }
         store.execute(query)
-        store.enableBackgroundDelivery(for: stepType, frequency: .immediate) { _, _ in }
+        // バックグラウンド配信を有効化（失敗時はログに記録 — サイレント失敗を防ぐ）
+        store.enableBackgroundDelivery(for: stepType, frequency: .immediate) { success, error in
+            if !success {
+                print("[HealthKit] enableBackgroundDelivery failed: \(error?.localizedDescription ?? "unknown")")
+            }
+        }
     }
 }
