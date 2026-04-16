@@ -89,27 +89,71 @@ final class BuildingNode: SKSpriteNode {
             y: PixelArtRenderer.buildingAnchorY(id: buildingId, level: level)
         )
 
-        // レベルアップエフェクト
-        let scaleUp   = SKAction.scale(to: 1.25, duration: 0.12)
-        let scaleDown = SKAction.scale(to: 1.0,  duration: 0.1)
+        // レベルアップエフェクト（より大きく・長く）
+        let scaleUp1   = SKAction.scale(to: 1.35, duration: 0.18)
+        let scaleDown1 = SKAction.scale(to: 0.95, duration: 0.10)
+        let scaleUp2   = SKAction.scale(to: 1.10, duration: 0.10)
+        let scaleDown2 = SKAction.scale(to: 1.0,  duration: 0.10)
         let flash = SKAction.sequence([
-            SKAction.colorize(with: .white, colorBlendFactor: 0.9, duration: 0.08),
-            SKAction.colorize(withColorBlendFactor: 0, duration: 0.12)
+            SKAction.colorize(with: .white, colorBlendFactor: 0.9, duration: 0.10),
+            SKAction.colorize(with: axis.skColor, colorBlendFactor: 0.4, duration: 0.18),
+            SKAction.colorize(withColorBlendFactor: 0, duration: 0.20)
         ])
-        run(SKAction.group([SKAction.sequence([scaleUp, scaleDown]), flash]))
+        run(SKAction.group([
+            SKAction.sequence([scaleUp1, scaleDown1, scaleUp2, scaleDown2]),
+            flash
+        ]))
 
-        // LvUP ラベル
-        let lvLabel = SKLabelNode(text: "Lv UP!")
-        lvLabel.fontName  = "Helvetica-Bold"
-        lvLabel.fontSize  = 12
+        // 金色スパークルバースト＋軸色のリングパルス（建物足元から放射）
+        if let scene = scene {
+            SpriteEffects.spawnRingPulse(
+                at: position, in: scene,
+                color: UIColor(red: 1, green: 0.84, blue: 0, alpha: 1),
+                startSize: 28, endSize: 110, ringCount: 2,
+                zPosition: zPosition + 0.4, duration: 0.7
+            )
+            SpriteEffects.spawnSparkleBurst(
+                at: CGPoint(x: position.x, y: position.y + size.height * 0.4),
+                in: scene,
+                color: UIColor(red: 1, green: 0.84, blue: 0, alpha: 1),
+                count: 14, radius: 60,
+                zPosition: zPosition + 0.5
+            )
+            SpriteEffects.spawnSparkleBurst(
+                at: CGPoint(x: position.x, y: position.y + size.height * 0.4),
+                in: scene,
+                color: axis.skColor,
+                count: 8, radius: 36,
+                zPosition: zPosition + 0.5
+            )
+        }
+        HapticEngine.levelUpBurst()
+
+        // LvUP ラベル（影付き・大きく）
+        let lvLabel = SKLabelNode(text: "Lv.\(level)  UP!")
+        lvLabel.fontName  = "AvenirNext-Heavy"
+        lvLabel.fontSize  = 16
         lvLabel.fontColor = UIColor(red: 1, green: 0.84, blue: 0, alpha: 1)
-        lvLabel.position  = CGPoint(x: 0, y: size.height * 0.5 + 6)
+        lvLabel.position  = CGPoint(x: 0, y: size.height * 0.5 + 8)
         lvLabel.zPosition = 500
+        lvLabel.alpha = 0
+        lvLabel.setScale(0.5)
         addChild(lvLabel)
+        let shadow = SKLabelNode(text: "Lv.\(level)  UP!")
+        shadow.fontName  = "AvenirNext-Heavy"
+        shadow.fontSize  = 16
+        shadow.fontColor = UIColor.black.withAlphaComponent(0.55)
+        shadow.position  = CGPoint(x: 1, y: -1)
+        lvLabel.insertChild(shadow, at: 0)
+
         lvLabel.run(SKAction.sequence([
             SKAction.group([
-                SKAction.moveBy(x: 0, y: 20, duration: 0.8),
-                SKAction.sequence([SKAction.wait(forDuration: 0.4),
+                SKAction.fadeIn(withDuration: 0.12),
+                SKAction.scale(to: 1.0, duration: 0.18)
+            ]),
+            SKAction.group([
+                SKAction.moveBy(x: 0, y: 28, duration: 0.95),
+                SKAction.sequence([SKAction.wait(forDuration: 0.55),
                                    SKAction.fadeOut(withDuration: 0.4)])
             ]),
             SKAction.removeFromParent()
@@ -133,11 +177,26 @@ final class BuildingNode: SKSpriteNode {
     }
 
     func highlightBuildingZone() {
-        let hl = SKAction.sequence([
-            SKAction.colorize(with: UIColor.white, colorBlendFactor: 0.4, duration: 0.15),
-            SKAction.colorize(withColorBlendFactor: 0, duration: 0.25)
+        // より長く・派手に：白フラッシュ + 軸色チント + スケールパンチ
+        let flash = SKAction.sequence([
+            SKAction.colorize(with: UIColor.white, colorBlendFactor: 0.6, duration: 0.10),
+            SKAction.colorize(with: axis.skColor, colorBlendFactor: 0.45, duration: 0.18),
+            SKAction.colorize(withColorBlendFactor: 0, duration: 0.28)
         ])
-        run(hl)
+        let punch = SKAction.sequence([
+            SKAction.scale(to: 1.10, duration: 0.10),
+            SKAction.scale(to: 1.0,  duration: 0.16)
+        ])
+        run(SKAction.group([flash, punch]))
+        // 軸色のリングパルスを建物足元に表示
+        if let scene = scene {
+            SpriteEffects.spawnRingPulse(
+                at: position, in: scene,
+                color: axis.skColor,
+                startSize: 24, endSize: 90, ringCount: 1,
+                zPosition: zPosition + 0.3, duration: 0.45
+            )
+        }
     }
 
     // MARK: - タップ検出
@@ -154,6 +213,7 @@ final class BuildingNode: SKSpriteNode {
             gridY:       gridY
         )
         highlightBuildingZone()
+        HapticEngine.tapMedium()
     }
 
     // MARK: - 説明文

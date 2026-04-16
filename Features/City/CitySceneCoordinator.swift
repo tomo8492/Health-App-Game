@@ -59,8 +59,14 @@ final class CitySceneCoordinator {
     /// - Returns: 配置成功なら true、CP 不足 / 建設済み / 配置不可なら false
     @discardableResult
     func buildBuilding(_ entry: BuildingCatalogEntry) -> Bool {
-        guard canBuild(entry) else { return false }
-        guard let (gx, gy) = scene?.findBestPosition(for: entry.axis) else { return false }
+        guard canBuild(entry) else {
+            HapticEngine.error()
+            return false
+        }
+        guard let (gx, gy) = scene?.findBestPosition(for: entry.axis) else {
+            HapticEngine.error()
+            return false
+        }
         let placed = PlacedBuilding(
             id:      entry.id,
             name:    entry.name,
@@ -71,6 +77,7 @@ final class CitySceneCoordinator {
         BuildingPlacementStore.shared.place(placed)
         builtBuildingIds.insert(entry.id)   // @Observable → UI 即時更新
         scene?.placeNewBuilding(placed)
+        // 建設の触覚は scene?.placeNewBuilding 内で着地時に行われる
         return true
     }
 
@@ -101,9 +108,19 @@ final class CitySceneCoordinator {
         let delta = max(0, cp - todayCP)
         todayCP = min(cp, 500)
         if delta > 0 {
+            let prevLevel = cityLevelFor(cp: totalCP)
             totalCP = min(totalCP + delta, 999_999)
             scene?.onCPAdded(axis: .lifestyle, amount: delta)
             updateNPCCount()
+            let newLevel = cityLevel
+            if newLevel > prevLevel, let scene {
+                SpriteEffects.flashScreen(
+                    in: scene.cameraNodeForFX, size: scene.size,
+                    color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                    peakAlpha: 0.30, duration: 0.55
+                )
+                HapticEngine.success()
+            }
             checkMapExpansion()
         }
         updateWeather()
@@ -116,6 +133,7 @@ final class CitySceneCoordinator {
     ///   - axis:   更新する軸
     ///   - amount: 追加 CP 量
     func addCP(axis: CPAxis, amount: Int) {
+        let prevTotal = totalCP
         totalCP = min(totalCP + amount, 999_999)
         todayCP = min(todayCP + amount, 500)
         scene?.onCPAdded(axis: axis, amount: amount)
@@ -125,7 +143,36 @@ final class CitySceneCoordinator {
         scene?.addXPToBuildings(axis: axis, amount: boostedXP)
         updateWeather()
         updateNPCCount()
+        // 街レベルが上がった瞬間は強めの触覚 + 全画面祝福フラッシュ
+        let prevCityLevel = cityLevelFor(cp: prevTotal)
+        let newCityLevel  = cityLevel
+        if newCityLevel > prevCityLevel, let scene {
+            SpriteEffects.flashScreen(
+                in: scene.cameraNodeForFX, size: scene.size,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                peakAlpha: 0.32, duration: 0.55
+            )
+            HapticEngine.success()
+        } else {
+            HapticEngine.tapLight()
+        }
         checkMapExpansion()
+    }
+
+    /// CP 値から街レベルを返す（cityLevel と同じスイッチ）
+    private func cityLevelFor(cp: Int) -> Int {
+        switch cp {
+        case 50_000...: return 10
+        case 30_000...: return  9
+        case 20_000...: return  8
+        case 15_000...: return  7
+        case 10_000...: return  6
+        case 7_000...:  return  5
+        case 5_000...:  return  4
+        case 3_000...:  return  3
+        case 1_000...:  return  2
+        default:        return  1
+        }
     }
 
     /// 歩数更新（HealthKit バックグラウンド）
