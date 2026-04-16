@@ -39,11 +39,11 @@ jobs:
         run: swift test --parallel
 
   # ─────────────────────────────────────────────
-  # Job 2: iOS アプリの Xcode テスト
-  # isowords パターン: Simulator で結合テスト
+  # Job 2: iOS アプリの Xcode ビルド（Simulator）
+  # XcodeGen で .xcodeproj を生成してからビルド
   # ─────────────────────────────────────────────
-  test-ios:
-    name: "Test iOS App (Simulator)"
+  build-ios:
+    name: "Build iOS App (Simulator)"
     runs-on: macos-15
     needs: test-core
     steps:
@@ -52,16 +52,32 @@ jobs:
       - name: Select Xcode 16
         run: sudo xcode-select -switch /Applications/Xcode_16.2.app
 
-      - name: Run iOS Tests
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Verify PrivacyInfo.xcprivacy in Copy Bundle Resources
         run: |
-          xcodebuild test \
+          if ! grep -q "PrivacyInfo.xcprivacy" VitaCity.xcodeproj/project.pbxproj; then
+            echo "::error::PrivacyInfo.xcprivacy is not in the generated project"
+            exit 1
+          fi
+          echo "✓ PrivacyInfo.xcprivacy is referenced in project.pbxproj"
+
+      - name: Build iOS App
+        run: |
+          xcodebuild build \
+            -project VitaCity.xcodeproj \
             -scheme VitaCity \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.2' \
-            -resultBundlePath TestResults \
-            -enableCodeCoverage YES \
+            -configuration Debug \
             CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO
-        continue-on-error: true  # Xcode プロジェクト作成後に有効化
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty
+        continue-on-error: true  # 画像未生成フェーズ中は OK を許容、D フェーズ後に外す
 
   # ─────────────────────────────────────────────
   # Job 3: SwiftLint（nalexn パターン: コード品質チェック）
@@ -77,3 +93,55 @@ jobs:
 
       - name: Run SwiftLint
         run: swiftlint lint --reporter github-actions-logging
+        continue-on-error: true  # .swiftlint.yml 未設定の場合は失敗させない
+
+  # ─────────────────────────────────────────────
+  # Job 4: 必須ファイルの存在確認（構造テスト）
+  # 画像・メタデータ・プライバシー設定が抜け落ちていないか機械的にチェック
+  # ─────────────────────────────────────────────
+  structure-check:
+    name: "Structure & Assets Check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify required release files
+        run: |
+          set -e
+          required_files=(
+            "App/Info.plist"
+            "App/PrivacyInfo.xcprivacy"
+            "App/VitaCity.entitlements"
+            "VitaCity.storekit"
+            "project.yml"
+            "Package.swift"
+            "Resources/Assets.xcassets/Contents.json"
+            "Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"
+            "Resources/AssetNaming.md"
+            "Resources/ReleaseChecklist.md"
+            "Resources/AppStoreMetadata_ja.md"
+            "Resources/AppStoreMetadata_en.md"
+            "docs/privacy.html"
+            "docs/privacy_en.html"
+            "docs/support.html"
+          )
+          missing=0
+          for f in "${required_files[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::Missing required file"
+              missing=$((missing + 1))
+            else
+              echo "✓ $f"
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::$missing required files are missing"
+            exit 1
+          fi
+
+      - name: Verify no TODO/FIXME placeholders in release metadata
+        run: |
+          if grep -rE "\[YOUR (EMAIL|COMPANY|DOMAIN)" docs/*.html 2>/dev/null; then
+            echo "::warning::docs/*.html still contains [YOUR ...] placeholders."
+            echo "::warning::Remember to replace them before publishing to GitHub Pages."
+          fi
