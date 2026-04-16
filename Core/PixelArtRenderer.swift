@@ -237,31 +237,73 @@ enum PixelArtRenderer {
     /// キャッシュを全消去（アプリ設定変更・テスト用）
     static func invalidateCache() { cache.removeAllObjects() }
 
+    // MARK: - Asset Catalog Override (PixelLab.ai 画像差し替えパイプライン)
+    //
+    // Resources/Assets.xcassets に対応する名前の画像が存在すればそれを優先する。
+    // 見つからない場合は従来のプロシージャル生成にフォールバック。
+    // 命名規則は Resources/AssetNaming.md を参照。
+    //
+    //   例:
+    //     - 建物        : "bld_B001_lv1" … "bld_B030_lv5"
+    //     - 旗アニメ    : "bld_B025_lv1_f0" … "bld_B025_lv5_f3"
+    //     - 地面タイル  : "tile_grass_0", "tile_grass_1", "tile_road", ...
+    //     - NPC        : "npc_0_f0" … "npc_4_f3"
+    //     - 木          : "tree_0", "tree_1"
+    //     - 装飾        : "deco_streetlamp", "deco_bench"
+
+    private static func assetTexture(_ name: String) -> SKTexture? {
+        guard let img = UIImage(named: name) else { return nil }
+        let t = SKTexture(image: img)
+        t.filteringMode = .nearest   // ピクセルアート → 補間でぼかさない
+        return t
+    }
+
     // MARK: - Ground Tiles
 
     static func grassTile(variant: Int = 0) -> SKTexture {
         cached("grass\(variant)") {
+            assetTexture("tile_grass_\(variant)") ??
             isoTile(top: UIColor(hex: variant == 0 ? "6BC845" : "59B035"),
                     shadow: UIColor(hex:"3A8A20"), grass: true)
         }
     }
     static func roadTile() -> SKTexture {
-        cached("road") { isoTile(top: UIColor(hex:"B0A890"), shadow: UIColor(hex:"706850"), grass: false, roadMarkings: true) }
+        cached("road") {
+            assetTexture("tile_road") ??
+            isoTile(top: UIColor(hex:"B0A890"), shadow: UIColor(hex:"706850"),
+                    grass: false, roadMarkings: true)
+        }
     }
     static func sidewalkTile() -> SKTexture {
-        cached("sidewalk") { isoTile(top: UIColor(hex:"D8D0B8"), shadow: UIColor(hex:"989078"), grass: false) }
+        cached("sidewalk") {
+            assetTexture("tile_sidewalk") ??
+            isoTile(top: UIColor(hex:"D8D0B8"), shadow: UIColor(hex:"989078"), grass: false)
+        }
     }
     static func waterTile() -> SKTexture {
-        cached("water") { isoTile(top: UIColor(hex:"5BB8FF"), shadow: UIColor(hex:"2A7AC0"), grass: false) }
+        cached("water") {
+            assetTexture("tile_water") ??
+            isoTile(top: UIColor(hex:"5BB8FF"), shadow: UIColor(hex:"2A7AC0"), grass: false)
+        }
     }
     static func sandTile() -> SKTexture {
-        cached("sand") { isoTile(top: UIColor(hex:"F0D890"), shadow: UIColor(hex:"C0A850"), grass: false) }
+        cached("sand") {
+            assetTexture("tile_sand") ??
+            isoTile(top: UIColor(hex:"F0D890"), shadow: UIColor(hex:"C0A850"), grass: false)
+        }
     }
 
     // MARK: - Building Textures
 
     static func buildingTexture(id: String, level: Int) -> SKTexture {
         cached("bld_\(id)_lv\(level)") {
+            // 1) Lv 別画像があれば優先
+            if let t = assetTexture("bld_\(id)_lv\(level)") { return t }
+            // 2) Lv 別が無ければ最も近い低い Lv の画像にフォールバック（未生成 Lv を補完）
+            for lv in stride(from: level - 1, through: 1, by: -1) {
+                if let t = assetTexture("bld_\(id)_lv\(lv)") { return t }
+            }
+            // 3) 最終的にプロシージャル生成
             let cfg = BuildingVisualConfig.make(id: id, level: level)
             return isoBuilding(config: cfg, id: id, level: level)
         }
@@ -271,8 +313,15 @@ enum PixelArtRenderer {
 
     /// B025（市庁舎）など旗を持つ建物の 4 フレームアニメーションテクスチャを返す
     /// それ以外の建物は nil
+    /// Asset Catalog に bld_B025_lv1_f0〜f3 があれば画像を使用、無ければプロシージャル生成
     static func buildingAnimationTextures(id: String, level: Int) -> [SKTexture]? {
         guard id == "B025" else { return nil }
+        // 4 フレーム全てが Asset Catalog に存在するかチェック
+        let assetFrames: [SKTexture?] = (0..<4).map { assetTexture("bld_\(id)_lv\(level)_f\($0)") }
+        if assetFrames.allSatisfy({ $0 != nil }) {
+            return assetFrames.compactMap { $0 }
+        }
+        // 一部欠けていればプロシージャル生成
         return (0..<4).map { frame in
             cached("bld_\(id)_lv\(level)_f\(frame)") {
                 let cfg = BuildingVisualConfig.make(id: id, level: level)
@@ -292,67 +341,80 @@ enum PixelArtRenderer {
 
     static func npcTexture(type: NPCType, walkFrame: Int) -> SKTexture {
         let f = walkFrame % 4
-        return cached("npc_\(type.rawValue)_f\(f)") { npcSprite(type: type, frame: f) }
+        return cached("npc_\(type.rawValue)_f\(f)") {
+            assetTexture("npc_\(type.rawValue)_f\(f)")
+                ?? npcSprite(type: type, frame: f)
+        }
     }
 
     // MARK: - Tree
 
     static func treeTexture(variant: Int = 0) -> SKTexture {
-        cached("tree\(variant)") { treeSprite(variant: variant) }
+        cached("tree\(variant)") {
+            assetTexture("tree_\(variant)") ?? treeSprite(variant: variant)
+        }
     }
 
     // MARK: - Street Decorations
 
     static func streetLampTexture() -> SKTexture {
         cached("streetlamp") {
-            let w: CGFloat = 8, h: CGFloat = 22
-            let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
-                let cg = ctx.cgContext
-                // ポール
-                cg.setFillColor(UIColor(hex: "5D4037").cgColor)
-                cg.fill(CGRect(x: 3, y: 7, width: 2, height: 15))
-                // アーム（L字）
-                cg.fill(CGRect(x: 1, y: 7, width: 4, height: 2))
-                // ランプヘッド
-                cg.setFillColor(UIColor(hex: "FFF9C4").cgColor)
-                cg.fillEllipse(in: CGRect(x: 0, y: 2, width: 6, height: 6))
-                // ランプグロー（外縁）
-                cg.setStrokeColor(UIColor(hex: "F9A825").cgColor)
-                cg.setLineWidth(0.6)
-                cg.strokeEllipse(in: CGRect(x: 0, y: 2, width: 6, height: 6))
-                // ランプ中心ハイライト
-                cg.setFillColor(UIColor.white.withAlphaComponent(0.6).cgColor)
-                cg.fillEllipse(in: CGRect(x: 1.5, y: 3.5, width: 2, height: 2))
-                // ポールベース
-                cg.setFillColor(UIColor(hex: "4E342E").cgColor)
-                cg.fill(CGRect(x: 2, y: 20, width: 4, height: 2))
-            }
-            let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+            assetTexture("deco_streetlamp") ?? makeStreetLampTexture()
         }
+    }
+
+    private static func makeStreetLampTexture() -> SKTexture {
+        let w: CGFloat = 8, h: CGFloat = 22
+        let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+            let cg = ctx.cgContext
+            // ポール
+            cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+            cg.fill(CGRect(x: 3, y: 7, width: 2, height: 15))
+            // アーム（L字）
+            cg.fill(CGRect(x: 1, y: 7, width: 4, height: 2))
+            // ランプヘッド
+            cg.setFillColor(UIColor(hex: "FFF9C4").cgColor)
+            cg.fillEllipse(in: CGRect(x: 0, y: 2, width: 6, height: 6))
+            // ランプグロー（外縁）
+            cg.setStrokeColor(UIColor(hex: "F9A825").cgColor)
+            cg.setLineWidth(0.6)
+            cg.strokeEllipse(in: CGRect(x: 0, y: 2, width: 6, height: 6))
+            // ランプ中心ハイライト
+            cg.setFillColor(UIColor.white.withAlphaComponent(0.6).cgColor)
+            cg.fillEllipse(in: CGRect(x: 1.5, y: 3.5, width: 2, height: 2))
+            // ポールベース
+            cg.setFillColor(UIColor(hex: "4E342E").cgColor)
+            cg.fill(CGRect(x: 2, y: 20, width: 4, height: 2))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
 
     static func benchTexture() -> SKTexture {
         cached("bench") {
-            let w: CGFloat = 16, h: CGFloat = 12
-            let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
-                let cg = ctx.cgContext
-                // 座面
-                cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
-                cg.fill(CGRect(x: 1, y: 4, width: 14, height: 3))
-                // 背もたれ
-                cg.setFillColor(UIColor(hex: "795548").cgColor)
-                cg.fill(CGRect(x: 1, y: 1, width: 14, height: 2))
-                // 足（4本）
-                cg.setFillColor(UIColor(hex: "5D4037").cgColor)
-                cg.fill(CGRect(x: 2,  y: 7, width: 2, height: 5))
-                cg.fill(CGRect(x: 12, y: 7, width: 2, height: 5))
-                // アウトライン
-                cg.setStrokeColor(UIColor.black.withAlphaComponent(0.25).cgColor)
-                cg.setLineWidth(0.4)
-                cg.stroke(CGRect(x: 1, y: 1, width: 14, height: 6))
-            }
-            let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+            assetTexture("deco_bench") ?? makeBenchTexture()
         }
+    }
+
+    private static func makeBenchTexture() -> SKTexture {
+        let w: CGFloat = 16, h: CGFloat = 12
+        let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+            let cg = ctx.cgContext
+            // 座面
+            cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
+            cg.fill(CGRect(x: 1, y: 4, width: 14, height: 3))
+            // 背もたれ
+            cg.setFillColor(UIColor(hex: "795548").cgColor)
+            cg.fill(CGRect(x: 1, y: 1, width: 14, height: 2))
+            // 足（4本）
+            cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+            cg.fill(CGRect(x: 2,  y: 7, width: 2, height: 5))
+            cg.fill(CGRect(x: 12, y: 7, width: 2, height: 5))
+            // アウトライン
+            cg.setStrokeColor(UIColor.black.withAlphaComponent(0.25).cgColor)
+            cg.setLineWidth(0.4)
+            cg.stroke(CGRect(x: 1, y: 1, width: 14, height: 6))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
 
     // ────────────────────────────────────────────────────────────────
