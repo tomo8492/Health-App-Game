@@ -33,10 +33,23 @@
 	</array>
 
 	<!-- MARK: - HealthKit 使用説明（必須: App Store 審査要件）-->
+	<!--
+	  Apple 審査では「具体的に何のデータを」「何の目的で」使うかを明確にすることが
+	  推奨されている。拒否されやすい表現（"better experience", "improve the app"）は避け、
+	  機能と直結した説明にする。
+	-->
 	<key>NSHealthShareUsageDescription</key>
-	<string>VITA CITY は歩数・ワークアウト・睡眠データを読み取り、健康ポイント（CP）の計算に使用します。データはデバイス内にのみ保存され、外部サーバーには送信されません。</string>
+	<string>街の発展に使う健康ポイント（CP）を自動計算するため、歩数・消費カロリー・ワークアウト・睡眠時間を読み取ります。すべてのデータは iPhone 内にのみ保存され、外部サーバーには送信されません。</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>VITA CITY は健康記録の書き込み権限を使用しません。読み取り専用でご利用いただけます。</string>
+	<string>VITA CITY は HealthKit への書き込みを行いません。この項目は iOS の要件により記載されています。</string>
+
+	<!-- MARK: - モーション&フィットネス（iOS のペドメータ API を補助的に使用する場合）-->
+	<key>NSMotionUsageDescription</key>
+	<string>歩数カウントを補助的に取得し、街のキャラクターの動きに反映するために使用します。データはデバイス内にのみ保存されます。</string>
+
+	<!-- MARK: - ユーザー通知（日次リマインダー・ストリーク警告）-->
+	<key>NSUserNotificationUsageDescription</key>
+	<string>日次の記録リマインダーや連続記録達成の通知をお届けするために使用します。設定からいつでも無効化できます。</string>
 
 	<!-- MARK: - バックグラウンドモード（歩数の HKObserverQuery: CLAUDE.md Key Rule 7）-->
 	<key>UIBackgroundModes</key>
