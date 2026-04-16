@@ -297,13 +297,12 @@ enum PixelArtRenderer {
 
     static func buildingTexture(id: String, level: Int) -> SKTexture {
         cached("bld_\(id)_lv\(level)") {
-            // 1) Lv 別画像があれば優先
+            // 1) Lv 完全一致の画像があれば優先（BuildingNode のスプライトサイズと一致）
             if let t = assetTexture("bld_\(id)_lv\(level)") { return t }
-            // 2) Lv 別が無ければ最も近い低い Lv の画像にフォールバック（未生成 Lv を補完）
-            for lv in stride(from: level - 1, through: 1, by: -1) {
-                if let t = assetTexture("bld_\(id)_lv\(lv)") { return t }
-            }
-            // 3) 最終的にプロシージャル生成
+            // 2) Lv 画像が無ければプロシージャル生成にフォールバック
+            //    ※ 低 Lv 画像へのカスケードは避ける：BuildingNode が cfg.floors から算出する
+            //      スプライトサイズと、低 Lv 画像のサイズが合わず、SpriteKit が縦に引き延ばして
+            //      表示してしまうため（例: Lv3 スプライト 64×92 に Lv1 画像 64×52 が貼られる）
             let cfg = BuildingVisualConfig.make(id: id, level: level)
             return isoBuilding(config: cfg, id: id, level: level)
         }

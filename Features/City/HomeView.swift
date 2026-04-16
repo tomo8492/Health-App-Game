@@ -465,7 +465,9 @@ private struct MinimapView: View {
                 Rectangle().fill(Color.white.opacity(0.35)).frame(width: 2, height: 70)
 
                 // 建設済み建物のドット（軸色）
-                ForEach(Array(coordinator.builtBuildingIds), id: \.self) { id in
+                // Set をそのまま ForEach するとハッシュ順が毎回変わり SwiftUI の diff が無駄に走るので
+                // 確定順序でソートして安定した再描画にする
+                ForEach(coordinator.builtBuildingIds.sorted(), id: \.self) { id in
                     if let entry = BuildingCatalog.all.first(where: { $0.id == id }) {
                         Circle()
                             .fill(entry.axis.color)

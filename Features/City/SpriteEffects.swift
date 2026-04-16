@@ -11,9 +11,11 @@ enum SpriteEffects {
 
     // MARK: - 星型・粒子テクスチャ（キャッシュ）
 
+    // 内訳: 空グラデーション 7 パターン + スパークル 色別 ~6 + グローリング 色別 ~6 +
+    //      ウィンドウライト 1 + 純白 1 + ダスト 1 + 雲 2 + 余裕 = 128 で十分
     private static let textureCache: NSCache<NSString, SKTexture> = {
         let c = NSCache<NSString, SKTexture>()
-        c.countLimit = 32
+        c.countLimit = 128
         return c
     }()
 

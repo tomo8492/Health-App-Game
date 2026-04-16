@@ -213,7 +213,10 @@ final class BuildingNode: SKSpriteNode {
             gridY:       gridY
         )
         highlightBuildingZone()
-        HapticEngine.tapMedium()
+        // SKNode.touchesBegan は main queue で呼ばれるが SKNode 自体は @MainActor ではないため、
+        // 将来 Swift 6 で strict concurrency を有効化した際の安全策として
+        // @MainActor Task でディスパッチして HapticEngine を呼ぶ
+        Task { @MainActor in HapticEngine.tapMedium() }
     }
 
     // MARK: - 説明文

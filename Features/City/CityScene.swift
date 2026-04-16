@@ -306,6 +306,10 @@ final class CityScene: SKScene {
                     color: placed.axis.skColor,
                     count: 10, radius: 48, zPosition: 620
                 )
+                // 夜の窓ライトを追加する前に、親レイヤーの alpha を現在時刻に同期
+                // これをしないと深夜に建設した建物のライトが一瞬見えず、updateTimeOfDay が
+                // 次に呼ばれるまで待たされる（視覚フィードバック喪失）
+                self.nightLightLayer.alpha = self.nightLightAlpha(hour: self.currentHour)
                 self.addNightLights(for: node)
                 HapticEngine.constructionLanding()
             }

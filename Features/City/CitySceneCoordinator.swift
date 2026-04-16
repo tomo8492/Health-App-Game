@@ -246,22 +246,11 @@ final class CitySceneCoordinator {
     }
 
     // MARK: - 街レベル更新（累計 CP → Lv1〜10）
+    // 閾値は cityLevelFor(cp:) に一元化し、ここは単純な委譲のみ
+    // （閾値変更時に片方だけ更新されて整合が崩れるのを防ぐ）
 
     private func updateCityLevel() {
-        let newLevel: Int
-        switch totalCP {
-        case 50_000...: newLevel = 10
-        case 30_000...: newLevel =  9
-        case 20_000...: newLevel =  8
-        case 15_000...: newLevel =  7
-        case 10_000...: newLevel =  6
-        case 7_000...:  newLevel =  5
-        case 5_000...:  newLevel =  4
-        case 3_000...:  newLevel =  3
-        case 1_000...:  newLevel =  2
-        default:        newLevel =  1
-        }
-        cityLevel = newLevel
+        cityLevel = cityLevelFor(cp: totalCP)
     }
 
     // MARK: - マップ拡張チェック（CLAUDE.md Key Rule 6: 累計 CP 基準）
