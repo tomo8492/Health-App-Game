@@ -18,6 +18,9 @@ final class CityScene: SKScene {
     private let buildingLayer = SKNode()
     private let npcLayer      = SKNode()
     private let weatherLayer  = SKNode()
+    private let skyOverlay    = SKSpriteNode()  // 朝焼け / 夕焼け / 夜の常時表示オーバーレイ
+    private let nightLightLayer = SKNode()      // 夜の窓ライト（時間帯で alpha が変動）
+    private let effectLayer   = SKNode()        // CP 加算・建設パーティクル等の上層演出
     private let hudLayer      = SKNode()
 
     // MARK: - State
@@ -27,12 +30,17 @@ final class CityScene: SKScene {
     private var npcs: [NPCNode] = []
     private var currentWeather: WeatherType = .sunny
     private var weatherEmitter: SKNode?    // SKEmitterNode or programmatic rain node
+    private var cloudLayer: SKNode?        // 曇り・部分曇りで流れる雲レイヤー
     private var buildings:     [BuildingNode] = []
     private var penaltyNodes: [BuildingNode] = []  // B029/B030 ペナルティ建物（過飲時に自動出現）
+    private var currentHour: Int = 12
 
     // MARK: - カメラ
 
     private let cameraNode = SKCameraNode()
+
+    /// 外部から FX（フラッシュ等）をカメラ固定で出すためのアクセサ
+    var cameraNodeForFX: SKNode { cameraNode }
 
     // MARK: - ライフサイクル
 
@@ -52,7 +60,11 @@ final class CityScene: SKScene {
     private func setupScene() {
         backgroundColor = SKColor(red: 0.45, green: 0.72, blue: 0.94, alpha: 1)
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        [mapLayer, buildingLayer, npcLayer, weatherLayer].forEach { addChild($0) }
+        [mapLayer, buildingLayer, nightLightLayer, npcLayer, weatherLayer, effectLayer]
+            .forEach { addChild($0) }
+        nightLightLayer.zPosition = 250  // 建物の上、天気より下
+        nightLightLayer.alpha = 0
+        effectLayer.zPosition = 600
         hudLayer.zPosition = 1000
         // hudLayer は setupHUD() 内で cameraNode に addChild するため、ここでは追加しない
     }
@@ -233,6 +245,7 @@ final class CityScene: SKScene {
         node.playIdleAnimation()
         buildingLayer.addChild(node)
         buildings.append(node)
+        addNightLights(for: node)
     }
 
     // MARK: - 新規建設（CitySceneCoordinator.buildBuilding から呼ぶ）
@@ -261,15 +274,69 @@ final class CityScene: SKScene {
         buildingLayer.addChild(node)
         buildings.append(node)
 
-        // ポップインアニメーション: フェードイン → わずかにオーバーシュート → 定常サイズ
+        // 1) 着地用の粉塵ダストリング（地面エフェクト）
+        spawnConstructionDust(at: pos)
+
+        // 2) 軸色のリングパルス（中心 → 外側に拡散）
+        SpriteEffects.spawnRingPulse(
+            at: pos, in: effectLayer,
+            color: placed.axis.skColor,
+            startSize: 28, endSize: 130, ringCount: 2,
+            zPosition: 600, duration: 0.8
+        )
+
+        // 3) ポップインアニメーション: フェードイン → わずかにオーバーシュート → 定常サイズ
         node.run(SKAction.sequence([
             SKAction.group([
-                SKAction.fadeIn(withDuration: 0.2),
-                SKAction.scale(to: 1.15, duration: 0.25)
+                SKAction.fadeIn(withDuration: 0.22),
+                SKAction.scale(to: 1.22, duration: 0.28)
             ]),
-            SKAction.scale(to: 1.0, duration: 0.12),
-            SKAction.run { node.playIdleAnimation() }
+            SKAction.scale(to: 1.0, duration: 0.14),
+            SKAction.run { [weak self] in
+                node.playIdleAnimation()
+                guard let self else { return }
+                // 4) スパークルバースト（建設完了の達成感）
+                SpriteEffects.spawnSparkleBurst(
+                    at: pos, in: self.effectLayer,
+                    color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                    count: 16, radius: 70, zPosition: 620
+                )
+                SpriteEffects.spawnSparkleBurst(
+                    at: pos, in: self.effectLayer,
+                    color: placed.axis.skColor,
+                    count: 10, radius: 48, zPosition: 620
+                )
+                // 夜の窓ライトを追加する前に、親レイヤーの alpha を現在時刻に同期
+                // これをしないと深夜に建設した建物のライトが一瞬見えず、updateTimeOfDay が
+                // 次に呼ばれるまで待たされる（視覚フィードバック喪失）
+                self.nightLightLayer.alpha = self.nightLightAlpha(hour: self.currentHour)
+                self.addNightLights(for: node)
+                HapticEngine.constructionLanding()
+            }
         ]))
+    }
+
+    /// 建設時の地面ダストリング（軽量な薄い円が広がる）
+    private func spawnConstructionDust(at position: CGPoint) {
+        let tex = SpriteEffects.dustTexture()
+        for i in 0..<6 {
+            let angle = CGFloat(i) / 6 * .pi * 2
+            let dust = SKSpriteNode(texture: tex)
+            dust.size = CGSize(width: 12, height: 12)
+            dust.position = position
+            dust.zPosition = 580
+            dust.alpha = 0.9
+            effectLayer.addChild(dust)
+            dust.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.move(by: CGVector(dx: cos(angle) * 26, dy: sin(angle) * 13),
+                                  duration: 0.6),
+                    SKAction.scale(to: 2.0, duration: 0.6),
+                    SKAction.fadeOut(withDuration: 0.6)
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
     }
 
     /// 軸ゾーンから最も近い空きウォーカブルタイルを返す（スパイラル探索）
@@ -339,6 +406,15 @@ final class CityScene: SKScene {
     private func spawnPenaltyBuildings() {
         guard penaltyNodes.isEmpty, let map = parsedMap else { return }
         let cx = map.width / 2, cy = map.height / 2
+
+        // 警告フラッシュ + 警告音相当のハプティック
+        SpriteEffects.flashScreen(
+            in: cameraNode, size: size,
+            color: UIColor(red: 0.78, green: 0.10, blue: 0.10, alpha: 1.0),
+            peakAlpha: 0.40, duration: 0.55
+        )
+        HapticEngine.warning()
+
         // 飲酒ゾーン（findBestPosition の alcohol オフセット: -4, +2）付近
         let positions: [(id: String, name: String, dx: Int, dy: Int)] = [
             ("B029", "居酒屋",   -5, 2),
@@ -399,21 +475,70 @@ final class CityScene: SKScene {
     // MARK: - CP 加算エフェクト
 
     func onCPAdded(axis: CPAxis, amount: Int) {
-        let label = SKLabelNode(text: "+\(amount)CP")
-        label.fontName  = "Helvetica-Bold"
-        label.fontSize  = 18
-        label.fontColor = axis.skColor
-        label.position  = CGPoint(x: CGFloat.random(in: -60...60), y: 20)
-        label.zPosition = 600
-        label.alpha     = 0
-        addChild(label)
+        // カメラ中心（プレイヤーが今見ている位置）に加算演出を表示する
+        let center = cameraNode.position
 
-        label.run(SKAction.sequence([
-            SKAction.fadeIn(withDuration: 0.15),
+        // 1) リングパルス（軸色）— 視認性アップ
+        SpriteEffects.spawnRingPulse(
+            at: center, in: effectLayer,
+            color: axis.skColor,
+            startSize: 30, endSize: 140, ringCount: 2,
+            zPosition: 660, duration: 0.7
+        )
+
+        // 2) スパークルバースト — 大量の粒で達成感を演出
+        SpriteEffects.spawnSparkleBurst(
+            at: center, in: effectLayer,
+            color: axis.skColor,
+            count: max(8, min(amount / 5, 18)),
+            radius: 70, zPosition: 670
+        )
+
+        // 3) フローティングテキスト（影付き、軸アイコン＋金額）
+        let container = SKNode()
+        container.position = CGPoint(x: center.x + CGFloat.random(in: -40...40),
+                                     y: center.y + 18)
+        container.zPosition = 700
+        container.alpha = 0
+        container.setScale(0.5)
+        effectLayer.addChild(container)
+
+        // 影
+        let shadow = SKLabelNode(text: "+\(amount) CP")
+        shadow.fontName  = "AvenirNext-Heavy"
+        shadow.fontSize  = 30
+        shadow.fontColor = SKColor.black.withAlphaComponent(0.55)
+        shadow.position  = CGPoint(x: 1, y: -1)
+        shadow.horizontalAlignmentMode = .center
+        container.addChild(shadow)
+
+        // 本体
+        let label = SKLabelNode(text: "+\(amount) CP")
+        label.fontName  = "AvenirNext-Heavy"
+        label.fontSize  = 30
+        label.fontColor = axis.skColor
+        label.horizontalAlignmentMode = .center
+        container.addChild(label)
+
+        // 軸アイコンの代わりに金色の星マーク
+        let star = SKLabelNode(text: "★")
+        star.fontName  = "AvenirNext-Heavy"
+        star.fontSize  = 16
+        star.fontColor = SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+        star.position  = CGPoint(x: -42, y: 7)
+        star.horizontalAlignmentMode = .center
+        container.addChild(star)
+
+        container.run(SKAction.sequence([
             SKAction.group([
-                SKAction.moveBy(x: CGFloat.random(in: -20...20), y: 55, duration: 0.9),
+                SKAction.fadeIn(withDuration: 0.12),
+                SKAction.scale(to: 1.15, duration: 0.18)
+            ]),
+            SKAction.scale(to: 1.0, duration: 0.12),
+            SKAction.group([
+                SKAction.moveBy(x: 0, y: 70, duration: 0.95),
                 SKAction.sequence([
-                    SKAction.wait(forDuration: 0.5),
+                    SKAction.wait(forDuration: 0.55),
                     SKAction.fadeOut(withDuration: 0.4)
                 ])
             ]),
@@ -424,9 +549,12 @@ final class CityScene: SKScene {
     // MARK: - 天気システム
 
     func updateWeather(_ weather: WeatherType) {
+        let previous = currentWeather
         currentWeather = weather
         weatherEmitter?.removeFromParent()
         weatherEmitter = nil
+        cloudLayer?.removeFromParent()
+        cloudLayer = nil
 
         let color = bgColor(for: weather)
         run(SKAction.colorize(with: color, colorBlendFactor: 1, duration: 2.0))
@@ -438,14 +566,89 @@ final class CityScene: SKScene {
             node.zPosition = 200
             weatherLayer.addChild(node)
             weatherEmitter = node
+            cloudLayer = makeCloudLayer(density: 5, alpha: 0.55)
+            if let c = cloudLayer {
+                c.zPosition = 180
+                weatherLayer.addChild(c)
+            }
         case .stormy:
             let node = makeRainNode(isStorm: true)
             node.zPosition = 200
             weatherLayer.addChild(node)
             weatherEmitter = node
-        default:
-            break  // sunny / partlyCloudy / cloudy は背景色変化のみ
+            cloudLayer = makeCloudLayer(density: 7, alpha: 0.75, dark: true)
+            if let c = cloudLayer {
+                c.zPosition = 180
+                weatherLayer.addChild(c)
+            }
+            // 嵐に切り替わったときだけ雷フラッシュ + 警告ハプティック
+            if previous != .stormy {
+                triggerLightningFlash()
+                HapticEngine.warning()
+            }
+        case .cloudy:
+            cloudLayer = makeCloudLayer(density: 5, alpha: 0.65)
+            if let c = cloudLayer {
+                c.zPosition = 180
+                weatherLayer.addChild(c)
+            }
+        case .partlyCloudy:
+            cloudLayer = makeCloudLayer(density: 3, alpha: 0.55)
+            if let c = cloudLayer {
+                c.zPosition = 180
+                weatherLayer.addChild(c)
+            }
+        case .sunny:
+            break
         }
+    }
+
+    /// 雷光：白フラッシュを 2 回 + 短いディレイ（嵐時のみ）
+    private func triggerLightningFlash() {
+        SpriteEffects.flashScreen(
+            in: cameraNode, size: size,
+            color: .white, peakAlpha: 0.55, duration: 0.25
+        )
+        run(SKAction.sequence([
+            SKAction.wait(forDuration: 0.18),
+            SKAction.run { [weak self] in
+                guard let self else { return }
+                SpriteEffects.flashScreen(
+                    in: self.cameraNode, size: self.size,
+                    color: .white, peakAlpha: 0.4, duration: 0.18
+                )
+            }
+        ]))
+    }
+
+    /// プログラム生成の流れる雲レイヤー
+    private func makeCloudLayer(density: Int, alpha: CGFloat, dark: Bool = false) -> SKNode {
+        let container = SKNode()
+        container.alpha = alpha
+        let sceneW = size.width
+        let sceneH = size.height
+        for i in 0..<density {
+            let cloud = SKSpriteNode(texture: SpriteEffects.cloudTexture(variant: i % 2))
+            cloud.size = CGSize(width: 96 + CGFloat.random(in: 0...40),
+                                height: 36 + CGFloat.random(in: 0...10))
+            if dark {
+                cloud.color = UIColor(white: 0.28, alpha: 1)
+                cloud.colorBlendFactor = 0.55
+            }
+            let startX = CGFloat.random(in: -sceneW/2 ... sceneW/2)
+            let y = sceneH/2 - CGFloat.random(in: 30...160)
+            cloud.position = CGPoint(x: startX, y: y)
+            cloud.zPosition = CGFloat(i) * 0.05
+            container.addChild(cloud)
+            let speed: CGFloat = dark ? 24 : 14
+            let totalDuration = TimeInterval((sceneW + 200) / speed)
+            let move = SKAction.moveBy(x: sceneW + 200, y: 0, duration: totalDuration)
+            let reset = SKAction.run { [weak cloud] in
+                cloud?.position.x = -sceneW/2 - 100
+            }
+            cloud.run(SKAction.repeatForever(SKAction.sequence([move, reset])))
+        }
+        return container
     }
 
     /// .sks ファイル不要のプログラム生成雨エフェクト
@@ -541,39 +744,128 @@ final class CityScene: SKScene {
         }
     }
 
-    // MARK: - 時間帯ライティング
+    // MARK: - 時間帯ライティング（常時オーバーレイ + 夜の窓ライト）
 
     func updateTimeOfDay(_ hour: Int) {
-        let alpha = timeAlpha(hour: hour)
-        guard alpha > 0 else { return }  // 昼間は不要なオーバーレイノードを生成しない
-        let overlay = SKSpriteNode(color: timeColor(hour: hour),
-                                   size: CGSize(width: size.width * 3, height: size.height * 3))
-        overlay.alpha     = 0
-        overlay.zPosition = 300
-        addChild(overlay)
-        overlay.run(SKAction.sequence([
-            SKAction.fadeAlpha(to: alpha, duration: 2.0),
-            SKAction.wait(forDuration: 1.0),
-            SKAction.fadeOut(withDuration: 2.5),
-            SKAction.removeFromParent()
+        currentHour = hour
+        let (topColor, bottomColor, overlayAlpha) = skyColors(hour: hour)
+
+        // 1) 空のグラデーションオーバーレイ（常時表示・滑らかに遷移）
+        let texture = SpriteEffects.skyGradientTexture(top: topColor, bottom: bottomColor)
+        if skyOverlay.parent == nil {
+            skyOverlay.size = CGSize(width: size.width * 3, height: size.height * 3)
+            skyOverlay.zPosition = 300
+            skyOverlay.alpha = 0
+            cameraNode.addChild(skyOverlay)  // カメラ固定
+        }
+        let setTexture = SKAction.run { [weak self] in
+            self?.skyOverlay.texture = texture
+            self?.skyOverlay.size = CGSize(width: self?.size.width ?? 800,
+                                           height: self?.size.height ?? 800)
+            self?.skyOverlay.size = CGSize(width: (self?.size.width ?? 800) * 3,
+                                           height: (self?.size.height ?? 800) * 3)
+        }
+        skyOverlay.run(SKAction.sequence([
+            setTexture,
+            SKAction.fadeAlpha(to: overlayAlpha, duration: 1.6)
         ]))
+
+        // 2) 夜の窓ライト alpha を時間帯に合わせる
+        let lightAlpha = nightLightAlpha(hour: hour)
+        nightLightLayer.run(SKAction.fadeAlpha(to: lightAlpha, duration: 1.6))
     }
 
-    private func timeColor(hour: Int) -> SKColor {
+    /// 時刻に応じた空のグラデーションと不透明度を返す
+    private func skyColors(hour: Int) -> (top: UIColor, bottom: UIColor, alpha: CGFloat) {
         switch hour {
-        case 17...20: return SKColor(red: 1.0, green: 0.5, blue: 0.1, alpha: 1)
-        case 21...23, 0...5: return SKColor(red: 0.05, green: 0.05, blue: 0.2, alpha: 1)
-        case 6...8:  return SKColor(red: 0.8, green: 0.9, blue: 1.0, alpha: 1)
-        default:     return .clear
+        case 5...6:  // 夜明け前 → 朝焼け
+            return (
+                UIColor(red: 0.18, green: 0.16, blue: 0.36, alpha: 1.0),
+                UIColor(red: 1.00, green: 0.55, blue: 0.40, alpha: 1.0),
+                0.30
+            )
+        case 7...9:  // 朝の柔らかい光
+            return (
+                UIColor(red: 0.78, green: 0.92, blue: 1.00, alpha: 1.0),
+                UIColor(red: 1.00, green: 0.92, blue: 0.78, alpha: 1.0),
+                0.18
+            )
+        case 10...15:  // 昼間（オーバーレイをほぼ消す）
+            return (.clear, .clear, 0.0)
+        case 16...17:  // 黄昏前
+            return (
+                UIColor(red: 1.00, green: 0.78, blue: 0.45, alpha: 1.0),
+                UIColor(red: 1.00, green: 0.55, blue: 0.30, alpha: 1.0),
+                0.20
+            )
+        case 18...19:  // 夕焼け
+            return (
+                UIColor(red: 0.85, green: 0.30, blue: 0.45, alpha: 1.0),
+                UIColor(red: 1.00, green: 0.45, blue: 0.20, alpha: 1.0),
+                0.32
+            )
+        case 20...21:  // 夜の入り口（青紫）
+            return (
+                UIColor(red: 0.10, green: 0.08, blue: 0.30, alpha: 1.0),
+                UIColor(red: 0.30, green: 0.18, blue: 0.45, alpha: 1.0),
+                0.45
+            )
+        default:  // 深夜（22-4 時）— 群青色のしっかりした夜
+            return (
+                UIColor(red: 0.04, green: 0.04, blue: 0.18, alpha: 1.0),
+                UIColor(red: 0.10, green: 0.10, blue: 0.30, alpha: 1.0),
+                0.55
+            )
         }
     }
 
-    private func timeAlpha(hour: Int) -> CGFloat {
+    /// 窓ライトの不透明度（昼は 0、夜は 1.0）
+    private func nightLightAlpha(hour: Int) -> CGFloat {
         switch hour {
-        case 17...20: return 0.22
-        case 21...23, 0...5: return 0.42
-        case 6...8:  return 0.12
-        default:     return 0
+        case 18:        return 0.6
+        case 19:        return 0.85
+        case 20...23, 0...4: return 1.0
+        case 5:         return 0.6
+        default:        return 0.0
+        }
+    }
+
+    /// 建物に夜のウィンドウライトを追加（昼夜サイクルで点灯/消灯する）
+    func addNightLights(for building: BuildingNode) {
+        // 既存ライト除去（再構築用）
+        nightLightLayer.children
+            .compactMap { $0 as? SKSpriteNode }
+            .filter { $0.name == "lights_\(building.gridX)_\(building.gridY)" }
+            .forEach { $0.removeFromParent() }
+
+        let tex = SpriteEffects.windowLightTexture()
+        // ペナルティ建物は窓ライト無し（廃墟感を強調）
+        if building.buildingId == "B030" { return }
+
+        // 各建物に対して 2〜4 個の窓ライトを建物上面付近にランダム配置
+        let count = Int.random(in: 2...4)
+        for _ in 0..<count {
+            let light = SKSpriteNode(texture: tex)
+            light.size = CGSize(width: 5, height: 5)
+            light.name = "lights_\(building.gridX)_\(building.gridY)"
+            light.zPosition = building.zPosition + 0.5
+            light.position = CGPoint(
+                x: building.position.x + CGFloat.random(in: -16...16),
+                y: building.position.y + CGFloat.random(in: 4...28)
+            )
+            light.alpha = 0  // nightLightLayer 自体の alpha は 0、点灯時に nightLightLayer.alpha が 1 になる
+            // アクション: ランダムな間隔でちらつく（生活感）
+            let flicker = SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.85, duration: 0.4 + Double.random(in: 0...0.3)),
+                SKAction.fadeAlpha(to: 1.0,  duration: 0.6 + Double.random(in: 0...0.4))
+            ])
+            light.run(SKAction.repeatForever(flicker))
+            // 居酒屋（B029）はオレンジっぽい色
+            if building.buildingId == "B029" {
+                light.color = UIColor(red: 1.0, green: 0.5, blue: 0.2, alpha: 1)
+                light.colorBlendFactor = 0.5
+            }
+            nightLightLayer.addChild(light)
         }
     }
 
@@ -599,6 +891,8 @@ final class CityScene: SKScene {
     func expandMap(to mapSize: MapSize) {
         mapLayer.removeAllChildren()
         buildingLayer.removeAllChildren()
+        nightLightLayer.removeAllChildren()
+        penaltyNodes.removeAll()
         buildings.removeAll()
         let map = generateCityMap(size: mapSize.rawValue)
         parsedMap = map
@@ -609,6 +903,20 @@ final class CityScene: SKScene {
         if let coordinator {
             updateNPCCount(coordinator.npcCount)
         }
+        // 時刻ライトを再適用（窓ライトが新規建物にも反映される）
+        updateTimeOfDay(currentHour)
+        // 拡張時の歓喜エフェクト：金色のスパークル + 軽いカメラズームアウト
+        SpriteEffects.spawnSparkleBurst(
+            at: cameraNode.position, in: effectLayer,
+            color: SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1),
+            count: 24, radius: 160, zPosition: 700
+        )
+        SpriteEffects.flashScreen(
+            in: cameraNode, size: size,
+            color: SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1),
+            peakAlpha: 0.25, duration: 0.6
+        )
+        HapticEngine.success()
         // 拡張後もマップ中心を表示
         resetCameraToCenter()
     }
@@ -616,11 +924,11 @@ final class CityScene: SKScene {
     // MARK: - プレミアムテーマ
 
     func applyPremiumTheme() {
-        // プレミアム向けの金色の光エフェクト
+        // プレミアム向けの金色の光エフェクト（カメラ固定）
         let glow = SKSpriteNode(color: SKColor(red: 1, green: 0.84, blue: 0, alpha: 0.05),
                                 size: CGSize(width: size.width * 3, height: size.height * 3))
         glow.zPosition = 299
-        addChild(glow)
+        cameraNode.addChild(glow)
         glow.run(SKAction.repeatForever(SKAction.sequence([
             SKAction.fadeAlpha(to: 0.08, duration: 2.0),
             SKAction.fadeAlpha(to: 0.03, duration: 2.0)

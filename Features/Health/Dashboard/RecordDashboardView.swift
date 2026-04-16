@@ -49,6 +49,9 @@ struct RecordDashboardView: View {
 
     @State var viewModel: RecordDashboardViewModel
     @State private var activeSheet: CPAxis? = nil
+    @State private var ringPulseTrigger: Int = 0      // CP リング光のパルス（CP増加時）
+    @State private var celebrate: Bool = false        // 全軸完了の祝福
+    @State private var lastTotalCP: Int = 0
     @Environment(AppState.self) private var appState  // ★ 保存後に AppState を同期
 
     init(streakManager: StreakManager) {
@@ -99,8 +102,24 @@ struct RecordDashboardView: View {
 
     private var ringSection: some View {
         VStack(spacing: 16) {
-            CPFiveRingsView(record: viewModel.todayRecord, size: 240)
-                .padding(.vertical, 8)
+            ZStack {
+                // 光のパルス（CP 増加時）
+                Circle()
+                    .stroke(Color.vcCP.opacity(ringPulseTrigger > 0 ? 0.0 : 0.0), lineWidth: 0)
+                    .frame(width: 240, height: 240)
+                ForEach(0..<3, id: \.self) { i in
+                    Circle()
+                        .stroke(Color.vcCP.opacity(0.0), lineWidth: 4)
+                        .frame(width: 240, height: 240)
+                        .modifier(PulseEffect(
+                            id: ringPulseTrigger,
+                            delay: Double(i) * 0.12,
+                            color: Color.vcCP
+                        ))
+                }
+                CPFiveRingsView(record: viewModel.todayRecord, size: 240)
+                    .padding(.vertical, 8)
+            }
 
             // 5軸 CP サマリー
             HStack(spacing: 0) {
@@ -124,16 +143,50 @@ struct RecordDashboardView: View {
             .background(Color.vcSecondary, in: RoundedRectangle(cornerRadius: 14))
 
             if viewModel.isAllComplete {
-                Label("本日全軸記録完了！", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Color.vcCP)
-                    .transition(.scale.combined(with: .opacity))
+                ZStack {
+                    // 紙吹雪風の背景パルス
+                    if celebrate {
+                        ConfettiView()
+                            .frame(height: 60)
+                            .transition(.opacity)
+                    }
+                    Label("本日全軸記録完了！🎉", systemImage: "checkmark.seal.fill")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Color.vcCP)
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.vcCP.opacity(0.20), Color.vcCP.opacity(0.05)],
+                                startPoint: .leading, endPoint: .trailing
+                            ),
+                            in: Capsule()
+                        )
+                        .scaleEffect(celebrate ? 1.06 : 1.0)
+                        .animation(.spring(response: 0.45, dampingFraction: 0.55), value: celebrate)
+                }
+                .transition(.scale.combined(with: .opacity))
             }
         }
         .frame(maxWidth: .infinity)
         .padding()
         .background(Color.vcSecondary, in: RoundedRectangle(cornerRadius: 20))
         .animation(.spring(response: 0.5), value: viewModel.todayRecord?.totalCP)
+        .onChange(of: viewModel.totalCP) { old, new in
+            // CP が増えたら光のパルスを発生 + ハプティック
+            if new > old {
+                ringPulseTrigger += 1
+                HapticEngine.tapLight()
+            }
+            // 全軸完了したら祝福アニメーション + サクセスハプティック
+            if viewModel.isAllComplete && !celebrate {
+                celebrate = true
+                HapticEngine.success()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
+                    celebrate = false
+                }
+            }
+            lastTotalCP = new
+        }
     }
 
     private var quickRecordSection: some View {
@@ -243,10 +296,21 @@ private struct QuickRecordButton: View {
     let isRecorded: Bool
     let action:     () -> Void
 
+    @State private var pressed: Bool = false
+
     var body: some View {
-        Button(action: action) {
+        Button {
+            // 触覚フィードバック → アクション
+            HapticEngine.tapLight()
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.55)) { pressed = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { pressed = false }
+            }
+            action()
+        } label: {
             HStack(spacing: 12) {
                 CPSmallRingView(axis: axis, cp: cp, size: 52)
+                    .shadow(color: pressed ? axis.color.opacity(0.6) : .clear, radius: 8)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(axis.name)
@@ -263,9 +327,97 @@ private struct QuickRecordButton: View {
                     .font(.caption)
             }
             .padding(12)
-            .background(Color.vcSecondary, in: RoundedRectangle(cornerRadius: 14))
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.vcSecondary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(axis.color.opacity(pressed ? 0.7 : 0), lineWidth: 1.4)
+                    )
+            )
+            .scaleEffect(pressed ? 0.97 : 1.0)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - PulseEffect (CP リング外側の光のパルス)
+
+private struct PulseEffect: ViewModifier {
+    let id: Int          // 変化するたびにアニメーションをトリガーする
+    let delay: Double
+    let color: Color
+
+    @State private var scale: CGFloat = 0.95
+    @State private var opacity: Double = 0.0
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                Circle()
+                    .stroke(color, lineWidth: 3)
+                    .scaleEffect(scale)
+                    .opacity(opacity)
+            )
+            .onChange(of: id) { _, _ in
+                // 即座にリセット → アニメーション
+                scale = 0.95
+                opacity = 0.85
+                withAnimation(.easeOut(duration: 0.7).delay(delay)) {
+                    scale = 1.25
+                    opacity = 0.0
+                }
+            }
+    }
+}
+
+// MARK: - ConfettiView (全軸完了時の紙吹雪)
+
+private struct ConfettiView: View {
+    private let pieces = (0..<22).map { _ in ConfettiPiece.random() }
+    @State private var animate: Bool = false
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<pieces.count, id: \.self) { i in
+                let p = pieces[i]
+                Rectangle()
+                    .fill(p.color)
+                    .frame(width: 5, height: 8)
+                    .rotationEffect(.degrees(animate ? p.endRotation : 0))
+                    .offset(
+                        x: animate ? p.endX : 0,
+                        y: animate ? p.endY : -20
+                    )
+                    .opacity(animate ? 0.0 : 1.0)
+                    .animation(
+                        .easeOut(duration: p.duration).delay(p.delay),
+                        value: animate
+                    )
+            }
+        }
+        .onAppear { animate = true }
+    }
+
+    private struct ConfettiPiece {
+        let color: Color
+        let endX: CGFloat
+        let endY: CGFloat
+        let endRotation: Double
+        let duration: Double
+        let delay: Double
+
+        static func random() -> ConfettiPiece {
+            let palette: [Color] = [.vcExercise, .vcDiet, .vcAlcohol, .vcSleep, .vcLifestyle, .vcCP]
+            return ConfettiPiece(
+                color: palette.randomElement() ?? .vcCP,
+                endX: CGFloat.random(in: -120...120),
+                endY: CGFloat.random(in: 30...80),
+                endRotation: Double.random(in: -180...180),
+                duration: Double.random(in: 1.4...2.2),
+                delay: Double.random(in: 0...0.3)
+            )
+        }
     }
 }
 

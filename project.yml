@@ -42,7 +42,15 @@ targets:
     deploymentTarget: "17.0"
 
     sources:
-      - App
+      # App/ 配下は Info.plist と entitlements を除外し、
+      # PrivacyInfo.xcprivacy は明示的に Copy Bundle Resources に回す
+      - path: App
+        excludes:
+          - "Info.plist"
+          - "VitaCity.entitlements"
+          - "PrivacyInfo.xcprivacy"
+      - path: App/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - Core
       - Domain
       - Features

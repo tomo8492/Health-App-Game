@@ -1,0 +1,95 @@
+# ─────────────────────────────────────────────
+# Xcode / XcodeGen
+# ─────────────────────────────────────────────
+# XcodeGen が project.yml から生成するため、
+# .xcodeproj はリポジトリに含めない（常に xcodegen generate で再生成）
+*.xcodeproj/
+*.xcworkspace/
+!docs/*.xcworkspace/
+
+# Xcode user data
+xcuserdata/
+xcuserstate
+*.xcuserstate
+*.xcuserdatad/
+*.moved-aside
+*.perspectivev3
+
+# Build artifacts
+DerivedData/
+build/
+Build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ─────────────────────────────────────────────
+# Swift Package Manager
+# ─────────────────────────────────────────────
+.build/
+.swiftpm/
+Package.resolved
+
+# ─────────────────────────────────────────────
+# CocoaPods / Carthage（本プロジェクトでは不使用だが念のため）
+# ─────────────────────────────────────────────
+Pods/
+Carthage/Build/
+Carthage/Checkouts/
+
+# ─────────────────────────────────────────────
+# Fastlane
+# ─────────────────────────────────────────────
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+fastlane/.env.*
+
+# ─────────────────────────────────────────────
+# macOS / OS
+# ─────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Icon?
+._*
+
+# ─────────────────────────────────────────────
+# Editor / IDE
+# ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.tags
+
+# ─────────────────────────────────────────────
+# Secrets / Credentials（絶対にコミットしない）
+# ─────────────────────────────────────────────
+*.p12
+*.p8
+*.mobileprovision
+*.provisionprofile
+AuthKey_*.p8
+*.key
+.env
+.env.local
+.env.*.local
+secrets.plist
+GoogleService-Info.plist
+
+# ─────────────────────────────────────────────
+# Claude Code / AI tools
+# ─────────────────────────────────────────────
+.claude/
+CLAUDE.local.md
+
+# ─────────────────────────────────────────────
+# Logs / Temp
+# ─────────────────────────────────────────────
+*.log
+*.tmp
+*.cache

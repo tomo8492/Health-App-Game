@@ -27,6 +27,9 @@ struct HomeView: View {
     @State private var showPremiumStore  = false
     @State private var showCityManagement = false
     @State private var cachedScene: CityScene?
+    @State private var cpBadgePulse:  Bool = false  // CP バッジパルス（totalCP 増加時）
+    @State private var weatherIconPulse: Bool = false
+    @State private var showMinimap: Bool = true
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -51,6 +54,21 @@ struct HomeView: View {
                 bottomBar
             }
             .animation(.spring(duration: 0.3), value: coordinator.selectedBuilding != nil)
+
+            // ─── ミニマップ（右下、トグル可能） ───
+            if showMinimap {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        MinimapView(coordinator: coordinator)
+                            .padding(.trailing, 12)
+                            .padding(.bottom, coordinator.selectedBuilding == nil ? 56 : 110)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+                }
+                .animation(.spring(duration: 0.4), value: coordinator.selectedBuilding != nil)
+            }
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showPremiumStore) {
@@ -64,6 +82,18 @@ struct HomeView: View {
         }
         .onChange(of: coordinator.totalCP) { _, cp in
             cachedScene?.updateHUDCP(cp)
+            // CP バッジに弾むパルスを与える
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) {
+                cpBadgePulse = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    cpBadgePulse = false
+                }
+            }
+        }
+        .onChange(of: coordinator.currentWeather) { _, _ in
+            withAnimation(.easeOut(duration: 0.5)) { weatherIconPulse.toggle() }
         }
         .task {
             coordinator.updateTimeOfDay(Calendar.current.component(.hour, from: Date()))
@@ -140,9 +170,11 @@ struct HomeView: View {
             Image(systemName: weatherIcon)
                 .font(.system(size: 12))
                 .foregroundStyle(weatherIconColor)
+                .symbolEffect(.bounce, value: weatherIconPulse)
             Text("\(coordinator.npcCount)")
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.white)
+                .contentTransition(.numericText())
             Image(systemName: "person.2.fill")
                 .font(.system(size: 9))
                 .foregroundStyle(Color.white.opacity(0.8))
@@ -157,13 +189,24 @@ struct HomeView: View {
             Image(systemName: "star.fill")
                 .font(.system(size: 10))
                 .foregroundStyle(Color.vcCP)
+                .scaleEffect(cpBadgePulse ? 1.45 : 1.0)
+                .shadow(color: Color.vcCP.opacity(cpBadgePulse ? 0.85 : 0), radius: 6)
             Text("\(coordinator.totalCP)")
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.vcCP)
+                .contentTransition(.numericText())
+                .scaleEffect(cpBadgePulse ? 1.18 : 1.0)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(Color.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+        .background(
+            Color.white.opacity(cpBadgePulse ? 0.30 : 0.15),
+            in: RoundedRectangle(cornerRadius: 6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.vcCP.opacity(cpBadgePulse ? 0.85 : 0), lineWidth: 1.2)
+        )
     }
 
     private var axisResourcesBar: some View {
@@ -381,6 +424,100 @@ struct HomeView: View {
         UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.keyWindow?.safeAreaInsets.top ?? 0
+    }
+}
+
+// MARK: - MinimapView
+
+/// 街全体を俯瞰する小型ミニマップ。
+/// - 軸別建物色のドット表示
+/// - 中央に市庁舎マーカー
+/// - 右下に街レベルバッジ
+private struct MinimapView: View {
+
+    let coordinator: CitySceneCoordinator
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                // 背景タイル
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.black.opacity(0.55))
+                    .frame(width: 96, height: 96)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.25), lineWidth: 0.6)
+                    )
+
+                // ベース地面（緑のダイアモンド風背景）
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color(red: 0.45, green: 0.78, blue: 0.40),
+                                     Color(red: 0.20, green: 0.50, blue: 0.18)],
+                            center: .center, startRadius: 4, endRadius: 38
+                        )
+                    )
+                    .frame(width: 72, height: 72)
+
+                // 中央道路（十字）
+                Rectangle().fill(Color.white.opacity(0.35)).frame(width: 70, height: 2)
+                Rectangle().fill(Color.white.opacity(0.35)).frame(width: 2, height: 70)
+
+                // 建設済み建物のドット（軸色）
+                // Set をそのまま ForEach するとハッシュ順が毎回変わり SwiftUI の diff が無駄に走るので
+                // 確定順序でソートして安定した再描画にする
+                ForEach(coordinator.builtBuildingIds.sorted(), id: \.self) { id in
+                    if let entry = BuildingCatalog.all.first(where: { $0.id == id }) {
+                        Circle()
+                            .fill(entry.axis.color)
+                            .frame(width: 5, height: 5)
+                            .offset(buildingOffset(for: id))
+                    }
+                }
+
+                // 中央市庁舎マーカー
+                Image(systemName: "star.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.vcCP)
+                    .shadow(color: Color.vcCP.opacity(0.7), radius: 2)
+
+                // 街レベルバッジ（右下）
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Text("Lv.\(coordinator.cityLevel)")
+                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.vcCP)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.black.opacity(0.7), in: Capsule())
+                    }
+                }
+                .frame(width: 90, height: 90)
+            }
+
+            Text("\(coordinator.builtBuildingIds.count) 棟")
+                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.85))
+        }
+    }
+
+    /// 軸ゾーンの相対オフセット（CityScene.findBestPosition と同方向）
+    private func buildingOffset(for id: String) -> CGSize {
+        guard let entry = BuildingCatalog.all.first(where: { $0.id == id }) else {
+            return .zero
+        }
+        // ハッシュで個別ジッタを与える（重なり防止）
+        let jitter = CGFloat((id.hashValue % 11) - 5)
+        switch entry.axis {
+        case .exercise:  return CGSize(width:  18 + jitter * 0.6, height: -16 + jitter * 0.4)
+        case .diet:      return CGSize(width: -18 + jitter * 0.6, height: -16 + jitter * 0.4)
+        case .alcohol:   return CGSize(width: -18 + jitter * 0.6, height:   8 + jitter * 0.4)
+        case .sleep:     return CGSize(width: -18 + jitter * 0.6, height:  20 + jitter * 0.4)
+        case .lifestyle: return CGSize(width:  16 + jitter * 0.6, height:  16 + jitter * 0.4)
+        }
     }
 }
 

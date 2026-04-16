@@ -1,0 +1,11 @@
+# GitHub Pages Jekyll config
+# Settings → Pages → Source: Deploy from a branch / main / /docs
+title: VITA CITY
+description: 健康習慣で育つドット絵の街
+theme: jekyll-theme-minimal
+lang: ja
+plugins:
+  - jekyll-seo-tag
+exclude:
+  - README.md
+  - .DS_Store
