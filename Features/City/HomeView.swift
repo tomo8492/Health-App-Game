@@ -130,6 +130,11 @@ struct HomeView: View {
 
             Spacer(minLength: 4)
 
+            // 建物コレクション
+            buildingCountBadge
+
+            Spacer(minLength: 4)
+
             // 5軸 CP
             axisResourcesBar
 
@@ -207,6 +212,20 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: 6)
                 .stroke(Color.vcCP.opacity(cpBadgePulse ? 0.85 : 0), lineWidth: 1.2)
         )
+    }
+
+    private var buildingCountBadge: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "building.2.fill")
+                .font(.system(size: 9))
+                .foregroundStyle(Color.white.opacity(0.8))
+            Text("\(coordinator.builtBuildingIds.count)/28")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(coordinator.builtBuildingIds.count >= 28 ? Color.vcCP : Color.white)
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
     }
 
     private var axisResourcesBar: some View {
@@ -412,11 +431,11 @@ struct HomeView: View {
 
     private var weatherMessage: String {
         switch coordinator.currentWeather {
-        case .sunny:        return "快晴！街は活気に満ちています"
-        case .partlyCloudy: return "晴れ時々曇り。良い調子です"
+        case .sunny:        return "快晴！建物XP 1.2倍ブースト中"
+        case .partlyCloudy: return "晴れ時々曇り。XP 1.1倍ブー��ト中"
         case .cloudy:       return "曇り空。記録を頑張りましょう"
-        case .rainy:        return "雨模様。健康習慣を続けよう"
-        case .stormy:       return "嵐。記録で街を守ろう！"
+        case .rainy:        return "雨模様。XP 0.9倍…晴れを目指そ��"
+        case .stormy:       return "嵐。XP 0.8倍…記録で天気を回復！"
         }
     }
 

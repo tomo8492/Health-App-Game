@@ -137,9 +137,10 @@ final class CitySceneCoordinator {
         totalCP = min(totalCP + amount, 999_999)
         todayCP = min(todayCP + amount, 500)
         scene?.onCPAdded(axis: axis, amount: amount)
-        // 建物ボーナスを XP ブーストとして適用（建設済み建物が多いほど建物が速くレベルアップ）
-        let boost = BuildingBonusCalculator.xpBoostMultiplier(for: axis, builtIds: builtBuildingIds)
-        let boostedXP = Int(Double(amount) * boost)
+        // 建物ボーナス × 天気ブーストを XP に適用
+        let buildingBoost = BuildingBonusCalculator.xpBoostMultiplier(for: axis, builtIds: builtBuildingIds)
+        let weatherBoost  = weatherXPMultiplier
+        let boostedXP = Int(Double(amount) * buildingBoost * weatherBoost)
         scene?.addXPToBuildings(axis: axis, amount: boostedXP)
         updateWeather()
         updateNPCCount()
@@ -177,8 +178,9 @@ final class CitySceneCoordinator {
 
     /// 歩数更新（HealthKit バックグラウンド）
     func updateStepCount(_ steps: Int) {
-        scene?.updateNPCCount(Int(Double(steps) / 10_000.0 * 10) + 1)
-        npcCount = min(steps / 1000, 20)
+        let stepNPCs = min(steps / 1000, 50)
+        scene?.updateNPCCount(stepNPCs)
+        npcCount = stepNPCs
     }
 
     /// 時刻変化（毎時）
@@ -205,6 +207,51 @@ final class CitySceneCoordinator {
         BuildingBonusCalculator.bonus(for: axis, builtIds: builtBuildingIds)
     }
 
+    // MARK: - ストリークマイルストーンボーナス
+
+    /// ストリーク日数に応じたボーナス CP を返す（マイルストーン到達時のみ）
+    /// 呼び出し側で previousStreak < milestone && newStreak >= milestone を判定すること
+    static let streakMilestones: [(days: Int, bonusCP: Int, label: String)] = [
+        (7,   50,  "1週間継続！"),
+        (14,  100, "2週間継続！"),
+        (30,  200, "1ヶ月継続！"),
+        (60,  350, "2ヶ月継続！"),
+        (100, 500, "100日達成！"),
+    ]
+
+    /// ストリーク更新時に呼ぶ。マイルストーン達成ならボーナス CP を加算しエフェクトを発動する
+    func checkStreakMilestone(previousStreak: Int, newStreak: Int) {
+        for milestone in Self.streakMilestones {
+            if previousStreak < milestone.days && newStreak >= milestone.days {
+                let prevLevel = cityLevelFor(cp: totalCP)
+                totalCP = min(totalCP + milestone.bonusCP, 999_999)
+
+                if let scene {
+                    // 金色フラッシュ（レベルアップと同格の祝福）
+                    SpriteEffects.flashScreen(
+                        in: scene.cameraNodeForFX, size: scene.size,
+                        color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                        peakAlpha: 0.35, duration: 0.6
+                    )
+                    // スパークルバースト（画面中央）
+                    SpriteEffects.spawnSparkleBurst(
+                        at: scene.cameraNodeForFX.position, in: scene.cameraNodeForFX,
+                        color: UIColor(red: 1.0, green: 0.60, blue: 0.0, alpha: 1.0),
+                        count: 20, radius: 90, zPosition: 700
+                    )
+                    HapticEngine.levelUpBurst()
+                }
+
+                let newLevel = cityLevelFor(cp: totalCP)
+                if newLevel > prevLevel {
+                    updateCityLevel()
+                }
+                updateNPCCount()
+                checkMapExpansion()
+            }
+        }
+    }
+
     // MARK: - 飲酒ペナルティ建物（CLAUDE.md Key Rule 2）
 
     /// 飲酒数に応じて B029/B030 ペナルティ建物を表示 / 非表示にする
@@ -229,18 +276,34 @@ final class CitySceneCoordinator {
 
     private func weatherForCP(_ cp: Int) -> WeatherType {
         switch cp {
-        case 400...: return .sunny
-        case 300..<400: return .partlyCloudy
-        case 200..<300: return .cloudy
-        case 100..<200: return .rainy
-        default:        return .stormy
+        case 350...: return .sunny
+        case 250..<350: return .partlyCloudy
+        case 150..<250: return .cloudy
+        case 75..<150: return .rainy
+        default:       return .stormy
+        }
+    }
+
+    /// 天気に応じた建物 XP 倍率（晴れで頑張ると建物が速く育つ）
+    var weatherXPMultiplier: Double {
+        switch currentWeather {
+        case .sunny:        return 1.2
+        case .partlyCloudy: return 1.1
+        case .cloudy:       return 1.0
+        case .rainy:        return 0.9
+        case .stormy:       return 0.8
         }
     }
 
     // MARK: - NPC 更新（totalCP 累計から計算）
 
     private func updateNPCCount() {
-        npcCount = min(totalCP / 100 + 1, 20)
+        // 序盤は速く増え、中盤以降は緩やかに成長する2段階式
+        // 0-2000 CP: 1体/100CP → 最大21体（序盤の街が賑わう感覚）
+        // 2000+ CP:  1体/500CP → 最大50体（長期的な成長実感）
+        let earlyNPCs = min(totalCP / 100 + 1, 21)
+        let lateNPCs  = max(0, (totalCP - 2_000)) / 500
+        npcCount = min(earlyNPCs + lateNPCs, 50)
         scene?.updateNPCCount(npcCount)
         updateCityLevel()
     }

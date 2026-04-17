@@ -56,9 +56,9 @@ struct CityManagementView: View {
                             .foregroundStyle(.white)
                             .background(Color.vcCP, in: Capsule())
                     }
-                    Text("建物 28 種 + 自動生成 2 種")
-                        .font(.caption)
-                        .foregroundStyle(Color.vcSecondaryLabel)
+                    Text("\(coordinator.builtBuildingIds.count)/28 建設済み")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(coordinator.builtBuildingIds.count >= 28 ? Color.vcCP : Color.vcSecondaryLabel)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
@@ -74,6 +74,11 @@ struct CityManagementView: View {
                         .foregroundStyle(Color.vcSecondaryLabel)
                 }
             }
+
+            Divider()
+
+            // 建物コレクション進捗
+            BuildingCollectionProgressView()
 
             Divider()
 
@@ -167,6 +172,63 @@ private struct MapExpansionProgressView: View {
                             .frame(height: 1)
                             .frame(maxWidth: .infinity)
                             .padding(.bottom, 14)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - BuildingCollectionProgressView
+
+private struct BuildingCollectionProgressView: View {
+
+    @Environment(CitySceneCoordinator.self) private var coordinator
+
+    private var builtCount: Int { coordinator.builtBuildingIds.count }
+    private var totalCount: Int { 28 }
+    private var progress: Double { Double(builtCount) / Double(totalCount) }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack {
+                Label("建物コレクション", systemImage: "building.2.fill")
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Text("\(builtCount)/\(totalCount)")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(builtCount >= totalCount ? Color.vcCP : Color.vcSecondaryLabel)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.vcSecondaryLabel.opacity(0.15))
+                        .frame(height: 8)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.vcCP.opacity(0.8), Color.vcCP],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * progress, height: 8)
+                }
+            }
+            .frame(height: 8)
+
+            // 軸別の建設状況（小さなドットで表現）
+            HStack(spacing: 12) {
+                ForEach(CPAxis.allCases, id: \.self) { axis in
+                    let axisBuildings = BuildingCatalog.all.filter { $0.axis == axis }
+                    let axisBuilt = axisBuildings.filter { coordinator.builtBuildingIds.contains($0.id) }.count
+                    HStack(spacing: 3) {
+                        Circle()
+                            .fill(axis.color)
+                            .frame(width: 6, height: 6)
+                        Text("\(axisBuilt)/\(axisBuildings.count)")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.vcSecondaryLabel)
                     }
                 }
             }
