@@ -162,8 +162,10 @@ final class CityScene: SKScene {
     // MARK: - 街路灯・ベンチ配置（道路沿い・歩道沿い）
 
     private func placeStreetDecorations(map: ParsedMap) {
-        let lampTex  = PixelArtRenderer.streetLampTexture()
-        let benchTex = PixelArtRenderer.benchTexture()
+        let lampTex     = PixelArtRenderer.streetLampTexture()
+        let benchTex    = PixelArtRenderer.benchTexture()
+        let flowerTex   = PixelArtRenderer.flowerPotTexture()
+        let signpostTex = PixelArtRenderer.signpostTexture()
         var lampCount = 0
 
         for row in 0..<map.height {
@@ -196,6 +198,26 @@ final class CityScene: SKScene {
                     bench.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     bench.zPosition   = z + 0.01
                     buildingLayer.addChild(bench)
+                }
+
+                // 花鉢: 歩道タイル (gid==3) で 8 マスごと（ベンチと被らない）
+                if tile.gid == 3 && (col + row) % 8 == 3 {
+                    let pot = SKSpriteNode(texture: flowerTex,
+                                          size: CGSize(width: 10, height: 14))
+                    pot.position    = CGPoint(x: pos.x - 3, y: pos.y + 2)
+                    pot.anchorPoint = CGPoint(x: 0.5, y: 0.0)
+                    pot.zPosition   = z + 0.02
+                    buildingLayer.addChild(pot)
+                }
+
+                // 案内標識: 歩道タイル (gid==3) で 12 マスごと
+                if tile.gid == 3 && (col + row) % 12 == 7 {
+                    let sign = SKSpriteNode(texture: signpostTex,
+                                           size: CGSize(width: 12, height: 20))
+                    sign.position    = CGPoint(x: pos.x + 5, y: pos.y + 3)
+                    sign.anchorPoint = CGPoint(x: 0.5, y: 0.0)
+                    sign.zPosition   = z + 0.02
+                    buildingLayer.addChild(sign)
                 }
             }
         }
