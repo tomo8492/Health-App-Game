@@ -56,6 +56,7 @@ struct RootView: View {
     @State private var selectedTab:        AppTab = .home
     @State private var achievementEngine   = AchievementEngine()
     @State private var cityCoordinator     = CitySceneCoordinator()   // ★ RootView で一元管理
+    @State private var loginBonusService   = LoginBonusService()
     @State private var pendingAchievement: Achievement? = nil
     @State private var showPremiumStore:   Bool = false
 
@@ -95,6 +96,8 @@ struct RootView: View {
         // CitySceneCoordinator を全タブから参照可能にする（CLAUDE.md Key Rule 9）
         .environment(cityCoordinator)
         .achievementBanner($pendingAchievement)
+        // ログインボーナスオーバーレイ（新しい日の初回起動時に表示）
+        .loginBonusOverlay($loginBonusService.pendingBonus)
         .sheet(isPresented: $showPremiumStore) {
             PremiumStoreView().environment(appState)
         }
@@ -176,10 +179,15 @@ struct RootView: View {
         )
         cityCoordinator.updateTimeOfDay(Calendar.current.component(.hour, from: Date()))
 
-        // 7. 通知スケジュール
+        // 7. ログインボーナス判定（日付が変わった初回起動のみ）
+        if let bonus = loginBonusService.checkAndAwardDailyBonus() {
+            cityCoordinator.awardLoginBonus(amount: bonus.totalCP)
+        }
+
+        // 8. 通知スケジュール
         await NotificationService.shared.scheduleDailyReminder()
 
-        // 8. 実績チェック
+        // 9. 実績チェック
         await checkAchievements()
     }
 

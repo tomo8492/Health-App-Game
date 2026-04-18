@@ -207,6 +207,39 @@ final class CitySceneCoordinator {
         BuildingBonusCalculator.bonus(for: axis, builtIds: builtBuildingIds)
     }
 
+    // MARK: - ログインボーナス（ごほうび CP）
+
+    /// ログインボーナス CP を付与する
+    /// - todayCP には加算しない（天気判定に影響させず、純粋な「ごほうび」として扱う）
+    /// - totalCP のみ加算 → 建物解放・街レベル・マップ拡張に貢献
+    func awardLoginBonus(amount: Int) {
+        guard amount > 0 else { return }
+        let prevLevel = cityLevelFor(cp: totalCP)
+        totalCP = min(totalCP + amount, 999_999)
+
+        // 軽めの演出（ストリークマイルストーン側で強い演出が出るので重複回避）
+        if let scene {
+            SpriteEffects.spawnSparkleBurst(
+                at: scene.cameraNodeForFX.position, in: scene.cameraNodeForFX,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                count: 12, radius: 70, zPosition: 700
+            )
+        }
+
+        // 街レベルが上がった場合のみ全画面フラッシュ
+        let newLevel = cityLevelFor(cp: totalCP)
+        if newLevel > prevLevel, let scene {
+            SpriteEffects.flashScreen(
+                in: scene.cameraNodeForFX, size: scene.size,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                peakAlpha: 0.28, duration: 0.5
+            )
+            updateCityLevel()
+        }
+        updateNPCCount()
+        checkMapExpansion()
+    }
+
     // MARK: - ストリークマイルストーンボーナス
 
     /// ストリーク日数に応じたボーナス CP を返す（マイルストーン到達時のみ）
