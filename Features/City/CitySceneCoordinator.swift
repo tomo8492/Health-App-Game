@@ -36,6 +36,9 @@ final class CitySceneCoordinator {
     var isPremium:      Bool   = false
     var cityLevel:      Int    = 1
 
+    /// 街レベルアップ報酬の保留通知（UI 表示用）
+    var pendingLevelUpReward: CityLevelReward? = nil
+
     // MARK: - SpriteKit シーン参照（弱参照）
 
     weak var scene: CityScene?
@@ -113,13 +116,8 @@ final class CitySceneCoordinator {
             scene?.onCPAdded(axis: .lifestyle, amount: delta)
             updateNPCCount()
             let newLevel = cityLevel
-            if newLevel > prevLevel, let scene {
-                SpriteEffects.flashScreen(
-                    in: scene.cameraNodeForFX, size: scene.size,
-                    color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
-                    peakAlpha: 0.30, duration: 0.55
-                )
-                HapticEngine.success()
+            if newLevel > prevLevel {
+                awardLevelUpReward(newLevel: newLevel)
             }
             checkMapExpansion()
         }
@@ -144,16 +142,11 @@ final class CitySceneCoordinator {
         scene?.addXPToBuildings(axis: axis, amount: boostedXP)
         updateWeather()
         updateNPCCount()
-        // 街レベルが上がった瞬間は強めの触覚 + 全画面祝福フラッシュ
+        // 街レベルが上がった瞬間は強めの触覚 + 全画面祝福フラッシュ + レベル報酬
         let prevCityLevel = cityLevelFor(cp: prevTotal)
         let newCityLevel  = cityLevel
-        if newCityLevel > prevCityLevel, let scene {
-            SpriteEffects.flashScreen(
-                in: scene.cameraNodeForFX, size: scene.size,
-                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
-                peakAlpha: 0.32, duration: 0.55
-            )
-            HapticEngine.success()
+        if newCityLevel > prevCityLevel {
+            awardLevelUpReward(newLevel: newCityLevel)
         } else {
             HapticEngine.tapLight()
         }
@@ -205,6 +198,45 @@ final class CitySceneCoordinator {
     /// 記録画面の previewCP に加算して「建物の恩恵」を可視化する
     func bonusCP(for axis: CPAxis) -> Int {
         BuildingBonusCalculator.bonus(for: axis, builtIds: builtBuildingIds)
+    }
+
+    // MARK: - 街レベルアップ報酬
+
+    /// レベルアップ報酬テーブル
+    static let levelRewards: [Int: CityLevelReward] = [
+        2:  CityLevelReward(level: 2,  bonusCP: 50,   title: "村からの出発",     description: "住人が集まり始めた！"),
+        3:  CityLevelReward(level: 3,  bonusCP: 100,  title: "発展の兆し",       description: "街並みが整い始めた"),
+        4:  CityLevelReward(level: 4,  bonusCP: 150,  title: "活気ある街",       description: "マップが拡張された！"),
+        5:  CityLevelReward(level: 5,  bonusCP: 200,  title: "繁栄する都市",     description: "建物が賑わっている"),
+        6:  CityLevelReward(level: 6,  bonusCP: 300,  title: "文化都市",         description: "住民が文化を楽しんでいる"),
+        7:  CityLevelReward(level: 7,  bonusCP: 400,  title: "大都市",           description: "マップがさらに拡張された！"),
+        8:  CityLevelReward(level: 8,  bonusCP: 500,  title: "健康都市宣言",     description: "健康の街として有名に"),
+        9:  CityLevelReward(level: 9,  bonusCP: 750,  title: "メガシティ",       description: "最大マップ解放！"),
+        10: CityLevelReward(level: 10, bonusCP: 1000, title: "VITA CITY 完成",  description: "伝説の健康都市の誕生！"),
+    ]
+
+    /// レベルアップ報酬を付与（金色フラッシュ + ボーナス CP + UI 通知）
+    private func awardLevelUpReward(newLevel: Int) {
+        updateCityLevel()
+
+        if let scene {
+            SpriteEffects.flashScreen(
+                in: scene.cameraNodeForFX, size: scene.size,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                peakAlpha: 0.35, duration: 0.65
+            )
+            SpriteEffects.spawnSparkleBurst(
+                at: scene.cameraNodeForFX.position, in: scene.cameraNodeForFX,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                count: 18, radius: 80, zPosition: 700
+            )
+        }
+        HapticEngine.levelUpBurst()
+
+        if let reward = Self.levelRewards[newLevel] {
+            totalCP = min(totalCP + reward.bonusCP, 999_999)
+            pendingLevelUpReward = reward
+        }
     }
 
     // MARK: - ログインボーナス（ごほうび CP）
@@ -411,4 +443,12 @@ struct BuildingInfo: Identifiable, Sendable {
     let description: String
     let gridX:       Int
     let gridY:       Int
+}
+
+struct CityLevelReward: Equatable, Identifiable {
+    var id: Int { level }
+    let level:       Int
+    let bonusCP:     Int
+    let title:       String
+    let description: String
 }

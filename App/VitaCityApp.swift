@@ -57,6 +57,7 @@ struct RootView: View {
     @State private var achievementEngine   = AchievementEngine()
     @State private var cityCoordinator     = CitySceneCoordinator()   // ★ RootView で一元管理
     @State private var loginBonusService   = LoginBonusService()
+    @State private var dailyChallengeService = DailyChallengeService()
     @State private var pendingAchievement: Achievement? = nil
     @State private var showPremiumStore:   Bool = false
 
@@ -98,6 +99,14 @@ struct RootView: View {
         .achievementBanner($pendingAchievement)
         // ログインボーナスオーバーレイ（新しい日の初回起動時に表示）
         .loginBonusOverlay($loginBonusService.pendingBonus)
+        // 街レベルアップ報酬オーバーレイ
+        .levelUpRewardOverlay($cityCoordinator.pendingLevelUpReward)
+        // 日替わりチャレンジ達成オーバーレイ
+        .dailyChallengeCompletion($dailyChallengeService.pendingCompletion)
+        // DailyChallengeService を全タブから参照可能にする
+        .environment(dailyChallengeService)
+        // 初回オンボーディング（UserDefaults で表示済み判定）
+        .onboardingOverlay()
         .sheet(isPresented: $showPremiumStore) {
             PremiumStoreView().environment(appState)
         }
@@ -105,6 +114,11 @@ struct RootView: View {
         // 今日の CP 変化を街ビューへ同期（todayCP と totalCP を分離管理）
         .onChange(of: appState.todayTotalCP) { _, newCP in
             cityCoordinator.syncTodayCP(newCP)
+            // 日替わりチャレンジ判定
+            let challengeBonus = dailyChallengeService.checkCompletion(todayRecord: appState.todayRecord)
+            if challengeBonus > 0 {
+                cityCoordinator.awardLoginBonus(amount: challengeBonus)
+            }
             Task { await checkAchievements() }
         }
         // 歩数変化を街の NPC 数へ同期

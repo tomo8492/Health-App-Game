@@ -24,6 +24,7 @@ struct HomeView: View {
 
     @Environment(AppState.self)             private var appState
     @Environment(CitySceneCoordinator.self) private var coordinator
+    @Environment(DailyChallengeService.self) private var challengeService
     @State private var showPremiumStore  = false
     @State private var showCityManagement = false
     @State private var cachedScene: CityScene?
@@ -355,11 +356,18 @@ struct HomeView: View {
 
             Spacer()
 
-            // 天気メッセージ（中央）
-            Text(weatherMessage)
-                .font(.system(size: 10))
-                .foregroundStyle(Color.white.opacity(0.75))
-                .lineLimit(1)
+            // 日替わりチャレンジバッジ + 天気メッセージ
+            VStack(spacing: 2) {
+                DailyChallengeBadge(
+                    challenge: challengeService.todayChallenge,
+                    isCompleted: challengeService.isCompleted,
+                    currentAxisCP: challengeAxisCP
+                )
+                Text(weatherMessage)
+                    .font(.system(size: 8))
+                    .foregroundStyle(Color.white.opacity(0.6))
+                    .lineLimit(1)
+            }
 
             Spacer()
 
@@ -427,6 +435,11 @@ struct HomeView: View {
         case .rainy:        return .cyan
         case .stormy:       return .purple
         }
+    }
+
+    private var challengeAxisCP: Int {
+        guard let record = appState.todayRecord else { return 0 }
+        return challengeService.todayChallenge.axis.cp(from: record)
     }
 
     private var weatherMessage: String {
