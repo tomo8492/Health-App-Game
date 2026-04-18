@@ -5,41 +5,54 @@
 
 ---
 
-## ⑯ `bld_B029_lv1` — 居酒屋（ペナルティ）
+## ⑯ `bld_B029_lv1` — 古びた居酒屋（ペナルティ）
 
 **サイズ**: 64 × 52 px
-**雰囲気**: 赤提灯・ネオン・やや荒れた印象（過飲警告）
+**雰囲気**: 質素で寂しげ、でも不潔ではない。罪悪感を軽く示唆する程度。
+
+> **設計方針**: 醜くしない。「暖かい窓明かり」で完全否定にならないようバランスを取る。
+> 詳細は `Resources/GameDesign/01_BuildingDesign.md` §3 特殊建物を参照。
 
 ```
-a small isometric izakaya Japanese pub building, 1-story weathered
-wooden facade, dark brown wood panels, bright red paper lanterns
-hanging from the eaves, a glowing orange neon sign in kanji style,
-a "open" flag (noren curtain) covering the entrance, slightly crooked
-and unkempt appearance, warm but decadent atmosphere, empty bottles
-near the door hinting at overconsumption, smoky window glow
+a small isometric old izakaya Japanese pub, 1-story weathered
+wooden facade, faded dark brown wood panels, two faded red paper
+lanterns (not bright — washed-out red) hanging from the eaves,
+a slightly tilted noren curtain covering the entrance, roof tiles
+with 2 tiles visibly missing on the right side, BUT warm golden
+window light glowing softly from inside (not fully negative),
+a single empty bottle near the doorstep (subtle hint, not many),
+quiet and melancholy atmosphere, subdued muted color palette,
+NOT ugly NOT dirty — just old and lonely
 ```
 
 **シード**: `200`（ペナルティ建物は別シリーズなので独立シード）
-**注意**: 可愛すぎない、**少し退廃的な雰囲気**がポイント
+**注意**: 「**暖かい窓明かり**」を必ず入れる。完全に暗く汚くしない。色あせ＋寂しさが正解。
 
 ---
 
 ## ⑰ `bld_B030_lv1` — 廃墟ビル（ペナルティ）
 
 **サイズ**: 64 × 72 px
-**雰囲気**: 窓が割れた放棄建物（最大警告）
+**雰囲気**: ツタが這う切ない建物。ホラーではなく「夕焼けが似合う」。
+
+> **設計方針**: 虫・血・暗闇は NG。物寂しさを表現。雑草は小さく、ツタは植物の生命力。
 
 ```
-a small isometric abandoned ruined office building, 2-stories, gray
-cracked concrete walls (#616161) with visible damage, broken windows
-with jagged glass shards, a cracked wooden sign hanging crooked, weeds
-growing from the foundation, rusty metal shutters on the ground floor,
-no lights inside, slightly tilted antenna on the roof, overgrown
-pavement around the base, atmospheric but not horror
+a small isometric abandoned office building, 2-stories, gray
+concrete walls (#9E9E9E, not too dark) with hairline cracks,
+a cracked wooden sign hanging slightly crooked, boarded-up
+windows with wooden planks on the ground floor, 2nd floor
+windows still intact but dusty, green ivy vines climbing up
+the left wall (life reclaiming the building — not horror),
+small weeds at the base (tiny, not overgrown jungle), a
+faded faint sunset glow reflecting on the walls (melancholy
+golden hour feel), no lights inside, muted desaturated
+palette, atmosphere of quiet sadness NOT horror NOT scary,
+the kind of building that makes you feel a little wistful
 ```
 
 **シード**: `201`
-**注意**: ホラーではなく**物悲しい** feel、色彩を落とす
+**注意**: 全体の**彩度を明確に落とす**がホラーにしない。ツタは「植物の生命力」として表現。
 
 ---
 
