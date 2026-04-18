@@ -41,11 +41,96 @@ extension UIColor {
 // MARK: - NPC Type
 
 enum NPCType: Int, CaseIterable {
-    case adventurer = 0  // 参考画像2: ブロンド+オレンジ外套+ティールチュニック
-    case citizen1   = 1  // 青系市民
-    case citizen2   = 2  // 赤系市民
-    case elder      = 3  // 白髪のお年寄り
-    case child      = 4  // 子ども
+    case adventurer = 0  // 旅人（プレイヤーの化身）: 金マント
+    case citizen1   = 1  // ハルナ（運動軸）: 緑トラックウェア
+    case citizen2   = 2  // ミツル（食事軸）: オレンジエプロン
+    case elder      = 3  // ユキ（飲酒自制軸）: 紫作務衣
+    case child      = 4  // リク（睡眠軸）: 青ベレー帽
+    case citizen3   = 5  // アオイ（生活習慣軸）: ピンクカーディガン
+
+    var roleName: String {
+        switch self {
+        case .adventurer: "旅人"
+        case .citizen1:   "ハルナ"
+        case .citizen2:   "ミツル"
+        case .elder:      "ユキ"
+        case .child:      "リク"
+        case .citizen3:   "アオイ"
+        }
+    }
+
+    var axis: CPAxis? {
+        switch self {
+        case .adventurer: nil
+        case .citizen1:   .exercise
+        case .citizen2:   .diet
+        case .elder:      .alcohol
+        case .child:      .sleep
+        case .citizen3:   .lifestyle
+        }
+    }
+
+    var roleMessages: [String] {
+        switch self {
+        case .adventurer:
+            return [
+                "ここまでよく頑張ったね",
+                "街が育ってきた",
+                "次の旅路を考えよう",
+                "この街は君が作った",
+                "素晴らしい景色だ",
+            ]
+        case .citizen1:
+            return [
+                "今日も走ってきた！",
+                "風が気持ちいい",
+                "次はあの坂に挑戦",
+                "一歩が世界を変える",
+                "体を動かすと気分爽快！",
+                "朝ランは最高！",
+            ]
+        case .citizen2:
+            return [
+                "今朝のトマトは最高",
+                "朝食は食べた？",
+                "素材の力を信じて",
+                "旬の野菜が入ったよ",
+                "美味しくて健康！",
+                "今日のスープは自信作",
+            ]
+        case .elder:
+            return [
+                "深呼吸しよう",
+                "静けさに感謝",
+                "月が綺麗だ",
+                "心を整えよう",
+                "お茶でも一杯いかが",
+                "焦らなくていい",
+            ]
+        case .child:
+            return [
+                "よく寝れた？",
+                "今夜は月が綺麗",
+                "7時間が黄金律",
+                "星が見えるよ",
+                "枕を変えたら人生変わる",
+                "おやすみの準備はOK？",
+            ]
+        case .citizen3:
+            return [
+                "いい本があるよ",
+                "水、飲んだ？",
+                "継続は力なり",
+                "今日も記録しよう",
+                "小さな習慣が大きな力に",
+                "読書は心の栄養",
+            ]
+        }
+    }
+
+    static var nightMessages: [String] {
+        ["静かな夜だ…", "おやすみ", "星がきれい", "良い夢を"]
+    }
 }
 
 // MARK: - Building Visual Config
@@ -113,29 +198,33 @@ extension BuildingVisualConfig {
 // MARK: - NPC Color Palettes
 
 private enum NPCColors {
-    /// Returns 8-color palette for the NPC type
+    // 8-color palette: [髪, 肌, 目, 服上, 服下/装飾, ベルト/靴上, 靴, 影]
     static func palette(for type: NPCType) -> [UIColor] {
         switch type {
-        case .adventurer:  // 参考画像2のキャラクター
+        case .adventurer:  // 旅人: 金髪・茶の旅人服・金のマント
             return [UIColor(hex:"E8B84B"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"C97520"), UIColor(hex:"3D8B7A"), UIColor(hex:"8B5E1A"),
+                    UIColor(hex:"C97520"), UIColor(hex:"FFD700"), UIColor(hex:"8B5E1A"),
                     UIColor(hex:"6B3A1F"), UIColor(hex:"3A1F0A")]
-        case .citizen1:
-            return [UIColor(hex:"3A2B1F"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"1565C0"), UIColor(hex:"42A5F5"), UIColor(hex:"5D4037"),
-                    UIColor(hex:"455A64"), UIColor(hex:"212121")]
-        case .citizen2:
-            return [UIColor(hex:"6B3A1F"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"B71C1C"), UIColor(hex:"EF5350"), UIColor(hex:"4E342E"),
-                    UIColor(hex:"3E2723"), UIColor(hex:"212121")]
-        case .elder:
-            return [UIColor(hex:"EEEEEE"), UIColor(hex:"E8C9A0"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"78909C"), UIColor(hex:"B0BEC5"), UIColor(hex:"607D8B"),
-                    UIColor(hex:"546E7A"), UIColor(hex:"37474F")]
-        case .child:
-            return [UIColor(hex:"E8B84B"), UIColor(hex:"FFD59A"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"FF7043"), UIColor(hex:"FFCC80"), UIColor(hex:"8D6E63"),
-                    UIColor(hex:"1565C0"), UIColor(hex:"212121")]
+        case .citizen1:  // ハルナ: 濃茶髪・緑トラックウェア・白スニーカー
+            return [UIColor(hex:"5D3A1A"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"34C759"), UIColor(hex:"2DA44E"), UIColor(hex:"5D4037"),
+                    UIColor(hex:"FAFAFA"), UIColor(hex:"BDBDBD")]
+        case .citizen2:  // ミツル: 白髪混じり黒髪・オレンジエプロン・ベージュ
+            return [UIColor(hex:"3A3A3A"), UIColor(hex:"E8C9A0"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"FF9500"), UIColor(hex:"FFB74D"), UIColor(hex:"5D4037"),
+                    UIColor(hex:"D7CCC8"), UIColor(hex:"4E342E")]
+        case .elder:  // ユキ: 黒髪束ね・紫作務衣・草履
+            return [UIColor(hex:"1A1A2E"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"AF52DE"), UIColor(hex:"9C27B0"), UIColor(hex:"F5F5DC"),
+                    UIColor(hex:"8D6E63"), UIColor(hex:"37474F")]
+        case .child:  // リク: 茶髪・青ベレー帽・白衣+青パジャマ風
+            return [UIColor(hex:"8B6914"), UIColor(hex:"FFD59A"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"007AFF"), UIColor(hex:"42A5F5"), UIColor(hex:"FAFAFA"),
+                    UIColor(hex:"1565C0"), UIColor(hex:"0D47A1")]
+        case .citizen3:  // アオイ: 栗色髪・ピンクカーディガン・濃紫スカート
+            return [UIColor(hex:"8B5E3C"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"FF2D55"), UIColor(hex:"FF6B8A"), UIColor(hex:"5D4037"),
+                    UIColor(hex:"6A1B9A"), UIColor(hex:"4A148C")]
         }
     }
 }
@@ -293,6 +382,14 @@ enum PixelArtRenderer {
         }
     }
 
+    static func cobblestoneTile() -> SKTexture {
+        cached("cobblestone") {
+            assetTexture("tile_cobblestone") ??
+            isoTile(top: UIColor(hex:"C8B8A0"), shadow: UIColor(hex:"8A7A60"),
+                    grass: false, cobblestone: true)
+        }
+    }
+
     // MARK: - Building Textures
 
     static func buildingTexture(id: String, level: Int) -> SKTexture {
@@ -345,6 +442,8 @@ enum PixelArtRenderer {
                 ?? npcSprite(type: type, frame: f)
         }
     }
+
+    static func npcAllTypes() -> [NPCType] { NPCType.allCases }
 
     // MARK: - Tree
 
@@ -420,7 +519,8 @@ enum PixelArtRenderer {
     // MARK: - Private: Iso Tile
     // ────────────────────────────────────────────────────────────────
 
-    private static func isoTile(top: UIColor, shadow: UIColor, grass: Bool, roadMarkings: Bool = false) -> SKTexture {
+    private static func isoTile(top: UIColor, shadow: UIColor, grass: Bool,
+                                roadMarkings: Bool = false, cobblestone: Bool = false) -> SKTexture {
         let w = tileW, h = tileH
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
@@ -457,6 +557,20 @@ enum PixelArtRenderer {
                         cg.fill(CGRect(x: x, y: y - 0.75, width: 3, height: 1.5))
                     }
                     step += 2
+                }
+            }
+            // 石畳パターン（プレミアム用）
+            if cobblestone {
+                cg.setStrokeColor(shadow.withAlphaComponent(0.3).cgColor)
+                cg.setLineWidth(0.5)
+                for row in stride(from: CGFloat(4), to: h - 2, by: 5) {
+                    let offset = Int(row / 5) % 2 == 0 ? CGFloat(0) : CGFloat(6)
+                    for col in stride(from: offset + 4, to: w - 4, by: 12) {
+                        let bx = col, by = row
+                        if abs(bx - w/2)/(w/2) + abs(by - h/2)/(h/2) <= 0.8 {
+                            cg.stroke(CGRect(x: bx, y: by, width: 8, height: 4))
+                        }
+                    }
                 }
             }
             // アウトライン

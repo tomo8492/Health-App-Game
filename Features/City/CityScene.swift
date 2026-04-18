@@ -122,17 +122,19 @@ final class CityScene: SKScene {
 
     private func addTileSprite(tile: MapTile, tileW: CGFloat, tileH: CGFloat) {
         let tex: SKTexture
+        let tileName: String
         switch tile.gid {
-        case 2:  tex = PixelArtRenderer.roadTile()
-        case 3:  tex = PixelArtRenderer.sidewalkTile()
-        case 4:  tex = PixelArtRenderer.waterTile()
-        case 5:  tex = PixelArtRenderer.sandTile()
-        default: tex = PixelArtRenderer.grassTile(variant: (tile.gridX + tile.gridY) % 2)
+        case 2:  tex = PixelArtRenderer.roadTile();      tileName = "road"
+        case 3:  tex = PixelArtRenderer.sidewalkTile();   tileName = "sidewalk"
+        case 4:  tex = PixelArtRenderer.waterTile();      tileName = "water"
+        case 5:  tex = PixelArtRenderer.sandTile();       tileName = "sand"
+        default: tex = PixelArtRenderer.grassTile(variant: (tile.gridX + tile.gridY) % 2); tileName = "grass"
         }
         let node = SKSpriteNode(texture: tex, size: CGSize(width: tileW, height: tileH))
         node.position  = tile.screenPosition
         node.zPosition = CGFloat(tile.gridX + tile.gridY) * 0.1 - 100
         node.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        node.name = tileName
         mapLayer.addChild(node)
     }
 
@@ -721,14 +723,12 @@ final class CityScene: SKScene {
     }
 
     private func spawnNPC(map: ParsedMap) {
-        for _ in 0..<10 {  // 10 回試行
+        for _ in 0..<10 {
             let x = Int.random(in: 0..<map.width)
             let y = Int.random(in: 0..<map.height)
             guard map.isWalkable(at: x, y: y) else { continue }
 
-            // NPC タイプをランダムに選択（アドベンチャラーは 20% の確率）
-            let type: NPCType = Int.random(in: 0..<5) == 0 ? .adventurer
-                              : NPCType.allCases.randomElement() ?? .citizen1
+            let type = nextNPCType()
             let npc = NPCNode(gridX: x, gridY: y, type: type)
             let pos = TiledMapParser.isoToScreen(
                 x: x, y: y,
@@ -742,6 +742,21 @@ final class CityScene: SKScene {
             npcs.append(npc)
             return
         }
+    }
+
+    private func nextNPCType() -> NPCType {
+        let total = npcs.count
+        // 旅人は最大 1 人（街レベル 3 以上）
+        let hasAdventurer = npcs.contains { $0.npcType == .adventurer }
+        if !hasAdventurer && total >= 5 && (coordinator?.cityLevel ?? 0) >= 3 {
+            return .adventurer
+        }
+        // 5 種の住民を均等に分配
+        let residents: [NPCType] = [.citizen1, .citizen2, .elder, .child, .citizen3]
+        let counts = residents.map { t in npcs.filter { $0.npcType == t }.count }
+        let minCount = counts.min() ?? 0
+        let candidates = zip(residents, counts).filter { $0.1 == minCount }.map(\.0)
+        return candidates.randomElement() ?? .citizen1
     }
 
     // MARK: - 時間帯ライティング（常時オーバーレイ + 夜の窓ライト）
@@ -924,7 +939,7 @@ final class CityScene: SKScene {
     // MARK: - プレミアムテーマ
 
     func applyPremiumTheme() {
-        // プレミアム向けの金色の光エフェクト（カメラ固定）
+        // 金色の光エフェクト（カメラ固定）
         let glow = SKSpriteNode(color: SKColor(red: 1, green: 0.84, blue: 0, alpha: 0.05),
                                 size: CGSize(width: size.width * 3, height: size.height * 3))
         glow.zPosition = 299
@@ -933,6 +948,31 @@ final class CityScene: SKScene {
             SKAction.fadeAlpha(to: 0.08, duration: 2.0),
             SKAction.fadeAlpha(to: 0.03, duration: 2.0)
         ])))
+
+        // 道路タイルを石畳に差し替え
+        upgradeToCobblestone()
+
+        // 窓ライトを暖色に変更
+        nightLightLayer.children.compactMap { $0 as? SKSpriteNode }.forEach { light in
+            light.color = UIColor(red: 1.0, green: 0.93, blue: 0.55, alpha: 1)
+            light.colorBlendFactor = 0.4
+        }
+
+        // 彩度 +10%（全体の色温度を少し暖かく）
+        let warmOverlay = SKSpriteNode(color: SKColor(red: 1.0, green: 0.95, blue: 0.85, alpha: 0.06),
+                                       size: CGSize(width: size.width * 3, height: size.height * 3))
+        warmOverlay.zPosition = 298
+        warmOverlay.blendMode = .alpha
+        cameraNode.addChild(warmOverlay)
+    }
+
+    private func upgradeToCobblestone() {
+        let cobbleTex = PixelArtRenderer.cobblestoneTile()
+        mapLayer.children.compactMap { $0 as? SKSpriteNode }.forEach { tile in
+            if tile.name == "road" || tile.name == "sidewalk" {
+                tile.texture = cobbleTex
+            }
+        }
     }
 
     // MARK: - HUD（カメラ固定）

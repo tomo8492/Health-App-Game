@@ -239,11 +239,9 @@ final class NPCNode: SKSpriteNode {
     // MARK: - タッチ処理
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        let messages = Self.speechMessages
-        let msg = messages[Int.random(in: 0..<messages.count)]
+        let msg = currentMessage()
         showSpeechBubble(msg)
 
-        // 弾む反応
         run(SKAction.sequence([
             SKAction.scale(to: 1.15, duration: 0.1),
             SKAction.scale(to: 1.0,  duration: 0.15)
@@ -252,21 +250,26 @@ final class NPCNode: SKSpriteNode {
         Task { @MainActor in HapticEngine.tapLight() }
     }
 
-    private static let speechMessages: [String] = [
+    private func currentMessage() -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour >= 22 || hour < 5 {
+            let pool = NPCType.nightMessages + npcType.roleMessages
+            return pool.randomElement() ?? "…"
+        }
+        let pool = npcType.roleMessages + Self.sharedMessages
+        return pool.randomElement() ?? "今日も頑張ろう！"
+    }
+
+    private static let sharedMessages: [String] = [
         "今日も頑張ろう！",
         "いい天気だね！",
         "街がにぎやか！",
         "健康が一番！",
-        "歩くの楽しい♪",
-        "水飲んだ？",
-        "よく寝れた？",
         "いい調子だね！",
-        "記録しよう！",
         "すごい街！",
         "ありがとう！",
         "応援してるよ！",
         "素敵な街だ！",
         "元気もらった！",
-        "続けるのが大事！",
     ]
 }
