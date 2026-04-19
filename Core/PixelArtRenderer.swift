@@ -853,12 +853,12 @@ enum PixelArtRenderer {
     /// Asset Catalog に bld_B025_lv1_f0〜f3 があれば画像を使用、無ければプロシージャル生成
     static func buildingAnimationTextures(id: String, level: Int) -> [SKTexture]? {
         guard id == "B025" else { return nil }
-        // 4 フレーム全てが Asset Catalog に存在するかチェック
         let assetFrames: [SKTexture?] = (0..<4).map { assetTexture("bld_\(id)_lv\(level)_f\($0)") }
         if assetFrames.allSatisfy({ $0 != nil }) {
             return assetFrames.compactMap { $0 }
         }
-        // 一部欠けていればプロシージャル生成
+        // 静的アセットがある場合はアニメーションせずそのテクスチャを維持
+        if assetTexture("bld_\(id)_lv\(level)") != nil { return nil }
         return (0..<4).map { frame in
             cached("bld_\(id)_lv\(level)_f\(frame)") {
                 let cfg = BuildingVisualConfig.make(id: id, level: level)
