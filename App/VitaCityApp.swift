@@ -198,10 +198,15 @@ struct RootView: View {
             cityCoordinator.awardLoginBonus(amount: bonus.totalCP)
         }
 
-        // 8. 通知スケジュール
+        // 8. アセット読み込み状態確認（DEBUG のみ）
+        #if DEBUG
+        PixelArtRenderer.debugAssetLoadStatus()
+        #endif
+
+        // 9. 通知スケジュール
         await NotificationService.shared.scheduleDailyReminder()
 
-        // 9. 実績チェック
+        // 10. 実績チェック
         await checkAchievements()
     }
 

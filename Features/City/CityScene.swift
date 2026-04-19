@@ -71,7 +71,7 @@ final class CityScene: SKScene {
 
     private func setupCamera() {
         camera = cameraNode
-        cameraNode.setScale(0.5)   // 俯瞰: スケール低いほどズームアウト
+        cameraNode.setScale(0.25)   // 俯瞰: 4倍ズームインでテクスチャを大きく表示
         addChild(cameraNode)
         // マップ中心を起動時の初期表示位置に設定（setupMap() の後に呼ぶこと）
         if let map = parsedMap {
@@ -182,7 +182,7 @@ final class CityScene: SKScene {
                 // 街路灯: 道路タイル (gid==2) で 4 マスごと、最大 24 本
                 if tile.gid == 2 && (col + row) % 4 == 0 && lampCount < 24 {
                     let lamp = SKSpriteNode(texture: lampTex,
-                                           size: CGSize(width: 8, height: 22))
+                                           size: CGSize(width: 16, height: 44))
                     lamp.position    = CGPoint(x: pos.x + 4, y: pos.y + 4)
                     lamp.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     lamp.zPosition   = z + 0.03
@@ -193,7 +193,7 @@ final class CityScene: SKScene {
                 // ベンチ: 歩道タイル (gid==3) で 6 マスごと
                 if tile.gid == 3 && (col + row) % 6 == 0 {
                     let bench = SKSpriteNode(texture: benchTex,
-                                            size: CGSize(width: 16, height: 12))
+                                            size: CGSize(width: 32, height: 24))
                     bench.position    = CGPoint(x: pos.x, y: pos.y + 2)
                     bench.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     bench.zPosition   = z + 0.01
@@ -203,7 +203,7 @@ final class CityScene: SKScene {
                 // 花鉢: 歩道タイル (gid==3) で 8 マスごと（ベンチと被らない）
                 if tile.gid == 3 && (col + row) % 8 == 3 {
                     let pot = SKSpriteNode(texture: flowerTex,
-                                          size: CGSize(width: 10, height: 14))
+                                          size: CGSize(width: 20, height: 28))
                     pot.position    = CGPoint(x: pos.x - 3, y: pos.y + 2)
                     pot.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     pot.zPosition   = z + 0.02
@@ -213,7 +213,7 @@ final class CityScene: SKScene {
                 // 案内標識: 歩道タイル (gid==3) で 12 マスごと
                 if tile.gid == 3 && (col + row) % 12 == 7 {
                     let sign = SKSpriteNode(texture: signpostTex,
-                                           size: CGSize(width: 12, height: 20))
+                                           size: CGSize(width: 24, height: 40))
                     sign.position    = CGPoint(x: pos.x + 5, y: pos.y + 3)
                     sign.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     sign.zPosition   = z + 0.02
@@ -234,7 +234,7 @@ final class CityScene: SKScene {
             guard x >= 0 && x < map.width && y >= 0 && y < map.height else { continue }
             let variant = (x + y) % 2
             let tex = PixelArtRenderer.treeTexture(variant: variant)
-            let node = SKSpriteNode(texture: tex, size: CGSize(width: 22, height: 34))
+            let node = SKSpriteNode(texture: tex, size: CGSize(width: 44, height: 68))
             node.position = TiledMapParser.isoToScreen(
                 x: x, y: y,
                 tileWidth: CGFloat(map.tileWidth),
@@ -917,7 +917,7 @@ final class CityScene: SKScene {
             tileHeight: CGFloat(map.tileHeight)
         )
         let move  = SKAction.move(to: center, duration: 0.45)
-        let scale = SKAction.scale(to: 0.5, duration: 0.45)  // 全体図に戻す
+        let scale = SKAction.scale(to: 0.25, duration: 0.45)  // 全体図に戻す
         move.timingMode  = .easeInEaseOut
         scale.timingMode = .easeInEaseOut
         cameraNode.run(SKAction.group([move, scale]))
@@ -1034,7 +1034,7 @@ final class CityScene: SKScene {
     @objc private func handlePinch(_ g: UIPinchGestureRecognizer) {
         switch g.state {
         case .began:    lastScale = cameraNode.xScale
-        case .changed:  cameraNode.setScale((lastScale * g.scale).clamped(to: 0.2...2.0))
+        case .changed:  cameraNode.setScale((lastScale / g.scale).clamped(to: 0.15...1.5))
         default: break
         }
     }
@@ -1043,8 +1043,9 @@ final class CityScene: SKScene {
         guard let view else { return }
         let t = g.translation(in: view)
         if g.state == .began { lastPanPoint = cameraNode.position }
-        cameraNode.position = CGPoint(x: lastPanPoint.x - t.x,
-                                      y: lastPanPoint.y + t.y)
+        let s = cameraNode.xScale
+        cameraNode.position = CGPoint(x: lastPanPoint.x - t.x * s,
+                                      y: lastPanPoint.y + t.y * s)
     }
 
     // MARK: - 時間ベース更新（1時間ごと）
