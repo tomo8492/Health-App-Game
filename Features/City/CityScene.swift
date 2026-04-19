@@ -71,7 +71,7 @@ final class CityScene: SKScene {
 
     private func setupCamera() {
         camera = cameraNode
-        cameraNode.setScale(0.5)   // 俯瞰: スケール低いほどズームアウト
+        cameraNode.setScale(0.25)   // 俯瞰: 4倍ズームインでテクスチャを大きく表示
         addChild(cameraNode)
         // マップ中心を起動時の初期表示位置に設定（setupMap() の後に呼ぶこと）
         if let map = parsedMap {
@@ -917,7 +917,7 @@ final class CityScene: SKScene {
             tileHeight: CGFloat(map.tileHeight)
         )
         let move  = SKAction.move(to: center, duration: 0.45)
-        let scale = SKAction.scale(to: 0.5, duration: 0.45)  // 全体図に戻す
+        let scale = SKAction.scale(to: 0.25, duration: 0.45)  // 全体図に戻す
         move.timingMode  = .easeInEaseOut
         scale.timingMode = .easeInEaseOut
         cameraNode.run(SKAction.group([move, scale]))
@@ -1034,7 +1034,7 @@ final class CityScene: SKScene {
     @objc private func handlePinch(_ g: UIPinchGestureRecognizer) {
         switch g.state {
         case .began:    lastScale = cameraNode.xScale
-        case .changed:  cameraNode.setScale((lastScale * g.scale).clamped(to: 0.2...2.0))
+        case .changed:  cameraNode.setScale((lastScale / g.scale).clamped(to: 0.15...1.5))
         default: break
         }
     }
@@ -1043,8 +1043,9 @@ final class CityScene: SKScene {
         guard let view else { return }
         let t = g.translation(in: view)
         if g.state == .began { lastPanPoint = cameraNode.position }
-        cameraNode.position = CGPoint(x: lastPanPoint.x - t.x,
-                                      y: lastPanPoint.y + t.y)
+        let s = cameraNode.xScale
+        cameraNode.position = CGPoint(x: lastPanPoint.x - t.x * s,
+                                      y: lastPanPoint.y + t.y * s)
     }
 
     // MARK: - 時間ベース更新（1時間ごと）
