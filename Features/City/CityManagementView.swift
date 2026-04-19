@@ -56,9 +56,9 @@ struct CityManagementView: View {
                             .foregroundStyle(.white)
                             .background(Color.vcCP, in: Capsule())
                     }
-                    Text("建物 28 種 + 自動生成 2 種")
-                        .font(.caption)
-                        .foregroundStyle(Color.vcSecondaryLabel)
+                    Text("\(coordinator.builtBuildingIds.count)/28 建設済み")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(coordinator.builtBuildingIds.count >= 28 ? Color.vcCP : Color.vcSecondaryLabel)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
@@ -74,6 +74,11 @@ struct CityManagementView: View {
                         .foregroundStyle(Color.vcSecondaryLabel)
                 }
             }
+
+            Divider()
+
+            // 建物コレクション進捗
+            BuildingCollectionProgressView()
 
             Divider()
 
@@ -167,6 +172,63 @@ private struct MapExpansionProgressView: View {
                             .frame(height: 1)
                             .frame(maxWidth: .infinity)
                             .padding(.bottom, 14)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - BuildingCollectionProgressView
+
+private struct BuildingCollectionProgressView: View {
+
+    @Environment(CitySceneCoordinator.self) private var coordinator
+
+    private var builtCount: Int { coordinator.builtBuildingIds.count }
+    private var totalCount: Int { 28 }
+    private var progress: Double { Double(builtCount) / Double(totalCount) }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack {
+                Label("建物コレクション", systemImage: "building.2.fill")
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Text("\(builtCount)/\(totalCount)")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(builtCount >= totalCount ? Color.vcCP : Color.vcSecondaryLabel)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.vcSecondaryLabel.opacity(0.15))
+                        .frame(height: 8)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.vcCP.opacity(0.8), Color.vcCP],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * progress, height: 8)
+                }
+            }
+            .frame(height: 8)
+
+            // 軸別の建設状況（小さなドットで表現）
+            HStack(spacing: 12) {
+                ForEach(CPAxis.allCases, id: \.self) { axis in
+                    let axisBuildings = BuildingCatalog.all.filter { $0.axis == axis }
+                    let axisBuilt = axisBuildings.filter { coordinator.builtBuildingIds.contains($0.id) }.count
+                    HStack(spacing: 3) {
+                        Circle()
+                            .fill(axis.color)
+                            .frame(width: 6, height: 6)
+                        Text("\(axisBuilt)/\(axisBuildings.count)")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.vcSecondaryLabel)
                     }
                 }
             }
@@ -322,6 +384,22 @@ struct BuildingCatalogDetailSheet: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
 
+                    // ロア（フレーバーテキスト）
+                    if !entry.lore.isEmpty {
+                        HStack(spacing: 8) {
+                            Image(systemName: "book.closed.fill")
+                                .foregroundStyle(entry.axis.color.opacity(0.6))
+                                .font(.caption)
+                            Text(entry.lore)
+                                .font(.caption)
+                                .foregroundStyle(Color.vcSecondaryLabel)
+                                .italic()
+                        }
+                        .padding(12)
+                        .background(entry.axis.color.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal)
+                    }
+
                     // 建物ボーナス表示
                     buildingBonusView
 
@@ -462,46 +540,103 @@ struct BuildingCatalogEntry: Identifiable {
     let axis:        CPAxis
     let requiredCP:  Int      // 建設に必要な累計 CP
     let description: String
+    let lore:        String   // フレーバーテキスト（建物にまつわる物語）
 }
 
 enum BuildingCatalog {
     static let all: [BuildingCatalogEntry] = [
         // 運動軸（Exercise） B001〜B006
-        .init(id: "B001", name: "トレーニングジム",    axis: .exercise,  requiredCP:    200, description: "筋トレ設備を完備したジム。体力 UP の拠点。"),
-        .init(id: "B002", name: "スポーツスタジアム",  axis: .exercise,  requiredCP:  1_000, description: "街のランドマーク。大会やイベントが開催される。"),
-        .init(id: "B003", name: "公園・ランニングコース", axis: .exercise, requiredCP:    500, description: "ウォーキング・ジョギングが楽しめる緑地。"),
-        .init(id: "B004", name: "プール",             axis: .exercise,  requiredCP:  2_000, description: "水泳・アクアビクスができる施設。"),
-        .init(id: "B005", name: "ヨガスタジオ",        axis: .exercise,  requiredCP:    800, description: "マインドフルネスと柔軟性を高める場所。"),
-        .init(id: "B006", name: "自転車ステーション",   axis: .exercise,  requiredCP:  1_500, description: "シェアサイクルの拠点。街の移動を活性化。"),
+        .init(id: "B001", name: "トレーニングジム", axis: .exercise, requiredCP: 200,
+              description: "筋トレ設備を完備したジム。体力 UP の拠点。",
+              lore: "かつて小さな倉庫だったこの場所を、ある住民が仲間と一緒にジムに改装した。「毎日少しずつでいい」がモットー。"),
+        .init(id: "B002", name: "スポーツスタジアム", axis: .exercise, requiredCP: 1_000,
+              description: "街のランドマーク。大会やイベントが開催される。",
+              lore: "年に一度の VITA CUP が開かれる聖地。住民たちの歓声が街に活力を届ける。"),
+        .init(id: "B003", name: "公園・ランニングコース", axis: .exercise, requiredCP: 500,
+              description: "ウォーキング・ジョギングが楽しめる緑地。",
+              lore: "朝日が差し込む並木道は、住民の散歩コース。ベンチには「1歩が世界を変える」と刻まれている。"),
+        .init(id: "B004", name: "プール", axis: .exercise, requiredCP: 2_000,
+              description: "水泳・アクアビクスができる施設。",
+              lore: "水の抵抗は優しい負荷。ここでは年配の方からキッズまで、水しぶきの笑顔が絶えない。"),
+        .init(id: "B005", name: "ヨガスタジオ", axis: .exercise, requiredCP: 800,
+              description: "マインドフルネスと柔軟性を高める場所。",
+              lore: "「呼吸に集中して」——師範の穏やかな声が響く。ここでは心も体もほぐれていく。"),
+        .init(id: "B006", name: "自転車ステーション", axis: .exercise, requiredCP: 1_500,
+              description: "シェアサイクルの拠点。街の移動を活性化。",
+              lore: "排気ガスゼロの移動革命。風を切って走る爽快感が、住民をまた自転車に乗せる。"),
 
         // 食事軸（Diet） B007〜B012
-        .init(id: "B007", name: "オーガニックカフェ",  axis: .diet,      requiredCP:    300, description: "地産地消の健康食を提供。地元農家と連携。"),
-        .init(id: "B008", name: "ファーマーズマーケット", axis: .diet,    requiredCP:    700, description: "週末に開かれる新鮮野菜の直売所。"),
-        .init(id: "B009", name: "ヘルシーレストラン",  axis: .diet,      requiredCP:  1_200, description: "栄養バランスを計算したコース料理を提供。"),
-        .init(id: "B010", name: "料理教室",           axis: .diet,      requiredCP:  2_500, description: "家庭料理の腕を磨ける文化施設。"),
-        .init(id: "B011", name: "サラダバー",          axis: .diet,      requiredCP:    400, description: "30種の野菜が揃うセルフサービスの食堂。"),
-        .init(id: "B012", name: "ジューススタンド",    axis: .diet,      requiredCP:    150, description: "フレッシュスムージーとコールドプレスジュース。"),
+        .init(id: "B007", name: "オーガニックカフェ", axis: .diet, requiredCP: 300,
+              description: "地産地消の健康食を提供。地元農家と連携。",
+              lore: "店主は元料理人。「食材の力を信じて」と語る彼女の料理は、どれも素材の味が生きている。"),
+        .init(id: "B008", name: "ファーマーズマーケット", axis: .diet, requiredCP: 700,
+              description: "週末に開かれる新鮮野菜の直売所。",
+              lore: "土曜の朝が一番賑わう。農家さんの笑顔と、色とりどりの野菜が並ぶ光景は街の風物詩。"),
+        .init(id: "B009", name: "ヘルシーレストラン", axis: .diet, requiredCP: 1_200,
+              description: "栄養バランスを計算したコース料理を提供。",
+              lore: "管理栄養士監修のメニューは週替わり。「美味しくて健康」を証明し続ける名店。"),
+        .init(id: "B010", name: "料理教室", axis: .diet, requiredCP: 2_500,
+              description: "家庭料理の腕を磨ける文化施設。",
+              lore: "「自分で作れば何を食べているか分かる」——ここで学んだ住民の食卓が変わっていく。"),
+        .init(id: "B011", name: "サラダバー", axis: .diet, requiredCP: 400,
+              description: "30種の野菜が揃うセルフサービスの食堂。",
+              lore: "好きな野菜を好きなだけ。カラフルな一皿を組み立てる楽しさが、野菜嫌いも変える。"),
+        .init(id: "B012", name: "ジューススタンド", axis: .diet, requiredCP: 150,
+              description: "フレッシュスムージーとコールドプレスジュース。",
+              lore: "忙しい朝でもビタミン補給。店先の黒板メニューは毎朝、旬の果物で書き換えられる。"),
 
         // 飲酒軸（Alcohol）→ 中央広場に寄与（CLAUDE.md Key Rule 2） B013〜B016
-        .init(id: "B013", name: "瞑想センター",        axis: .alcohol,   requiredCP:  1_800, description: "飲酒ゼロをサポートするマインドフルネス施設。"),
-        .init(id: "B014", name: "ハーブティーショップ", axis: .alcohol,  requiredCP:    600, description: "ノンアルコールドリンクの専門店。"),
-        .init(id: "B015", name: "セルフケアスパ",      axis: .alcohol,   requiredCP:  3_000, description: "節制の褒美に。リラクゼーション施設。"),
-        .init(id: "B016", name: "コミュニティセンター", axis: .alcohol,   requiredCP:  1_000, description: "ソーバーコミュニティの集会所。"),
+        .init(id: "B013", name: "瞑想センター", axis: .alcohol, requiredCP: 1_800,
+              description: "飲酒ゼロをサポートするマインドフルネス施設。",
+              lore: "静寂の中で自分と向き合う場所。「飲まなくても楽しい夜がある」と気づいた人たちの拠り所。"),
+        .init(id: "B014", name: "ハーブティーショップ", axis: .alcohol, requiredCP: 600,
+              description: "ノンアルコールドリンクの専門店。",
+              lore: "カモミールの香りに包まれた小さなお店。一杯のお茶が、お酒の代わりにほっとさせてくれる。"),
+        .init(id: "B015", name: "セルフケアスパ", axis: .alcohol, requiredCP: 3_000,
+              description: "節制の褒美に。リラクゼーション施設。",
+              lore: "頑張った自分へのご褒美は、お酒じゃなくてもいい。温かいお湯と静けさが心を癒す。"),
+        .init(id: "B016", name: "コミュニティセンター", axis: .alcohol, requiredCP: 1_000,
+              description: "ソーバーコミュニティの集会所。",
+              lore: "同じ目標を持つ仲間と集まる場所。互いの経験を分かち合い、励まし合う温かい空間。"),
 
         // 睡眠軸（Sleep） B017〜B022
-        .init(id: "B017", name: "睡眠クリニック",      axis: .sleep,     requiredCP:  2_000, description: "睡眠の質を科学的に改善する専門施設。"),
-        .init(id: "B018", name: "天文台",             axis: .sleep,      requiredCP:  4_000, description: "夜の美しさを感じながら良眠を誘う施設。"),
-        .init(id: "B019", name: "図書館",             axis: .lifestyle,  requiredCP:  1_500, description: "読書と学習の静寂な場所（CLAUDE.md: 生活習慣軸）"),
-        .init(id: "B020", name: "アロマテラピーショップ", axis: .sleep,   requiredCP:    800, description: "快眠を促すアロマグッズの専門店。"),
-        .init(id: "B021", name: "ムーンライトパーク",  axis: .sleep,      requiredCP:  1_200, description: "夕暮れ後に開放される静かな公園。"),
-        .init(id: "B022", name: "布団・寝具専門店",    axis: .sleep,      requiredCP:    500, description: "高品質な睡眠環境を整える専門店。"),
+        .init(id: "B017", name: "睡眠クリニック", axis: .sleep, requiredCP: 2_000,
+              description: "睡眠の質を科学的に改善する専門施設。",
+              lore: "睡眠ポリグラフが夜の秘密を解き明かす。ここに通い始めてから、朝が変わったという声が続出。"),
+        .init(id: "B018", name: "天文台", axis: .sleep, requiredCP: 4_000,
+              description: "夜の美しさを感じながら良眠を誘う施設。",
+              lore: "星空を見上げると、日常の悩みが小さく感じる。穏やかな夜が良い眠りの始まり。"),
+        .init(id: "B019", name: "図書館", axis: .lifestyle, requiredCP: 1_500,
+              description: "読書と学習の静寂な場所。",
+              lore: "本の中には無数の人生がある。ページをめくるたびに、少しずつ自分の習慣も良い方に変わっていく。"),
+        .init(id: "B020", name: "アロマテラピーショップ", axis: .sleep, requiredCP: 800,
+              description: "快眠を促すアロマグッズの専門店。",
+              lore: "ラベンダーの香りが漂う店内。「今夜はぐっすり眠れそう」と呟く客の笑顔が、店主の喜び。"),
+        .init(id: "B021", name: "ムーンライトパーク", axis: .sleep, requiredCP: 1_200,
+              description: "夕暮れ後に開放される静かな公園。",
+              lore: "月明かりに照らされた小径を歩く。虫の声と風の音だけの贅沢な時間が、心を眠りへ誘う。"),
+        .init(id: "B022", name: "布団・寝具専門店", axis: .sleep, requiredCP: 500,
+              description: "高品質な睡眠環境を整える専門店。",
+              lore: "「枕を変えたら人生が変わった」は大げさじゃない。良い睡眠は良い道具から始まる。"),
 
         // 生活習慣軸（Lifestyle） B023〜B028
-        .init(id: "B023", name: "ウォーターサーバー広場", axis: .lifestyle, requiredCP:  200, description: "水分補給を習慣化するための公共の泉。"),
-        .init(id: "B024", name: "メンタルヘルスクリニック", axis: .lifestyle, requiredCP: 3_500, description: "ストレスケアと心の健康をサポート。"),
-        .init(id: "B025", name: "市庁舎",             axis: .lifestyle,   requiredCP:    0,  description: "街の中心。総合 CP が集まる行政の拠点。"),
-        .init(id: "B026", name: "習慣カレンダータワー", axis: .lifestyle,  requiredCP:  2_500, description: "連続記録日数が刻まれる街のモニュメント。"),
-        .init(id: "B027", name: "ウェルネスショップ",   axis: .lifestyle,  requiredCP:    700, description: "健康グッズ・サプリメントの専門店。"),
-        .init(id: "B028", name: "公民館",             axis: .lifestyle,   requiredCP:  1_000, description: "地域コミュニティの集会・教室が開かれる場所。"),
+        .init(id: "B023", name: "ウォーターサーバー広場", axis: .lifestyle, requiredCP: 200,
+              description: "水分補給を習慣化するための公共の泉。",
+              lore: "街の中心に湧く清水。住民が水筒を持って集まる風景は、VITA CITY の日常になった。"),
+        .init(id: "B024", name: "メンタルヘルスクリニック", axis: .lifestyle, requiredCP: 3_500,
+              description: "ストレスケアと心の健康をサポート。",
+              lore: "体の健康だけじゃない。心が元気であることが、すべての土台。そう気づいた街が作った施設。"),
+        .init(id: "B025", name: "市庁舎", axis: .lifestyle, requiredCP: 0,
+              description: "街の中心。総合 CP が集まる行政の拠点。",
+              lore: "VITA CITY の始まりの場所。ここから街が広がり、住民が集まり、物語が生まれた。"),
+        .init(id: "B026", name: "習慣カレンダータワー", axis: .lifestyle, requiredCP: 2_500,
+              description: "連続記録日数が刻まれる街のモニュメント。",
+              lore: "塔の壁には住民の継続日数が刻まれている。「積み重ねが力になる」と塔が静かに語りかける。"),
+        .init(id: "B027", name: "ウェルネスショップ", axis: .lifestyle, requiredCP: 700,
+              description: "健康グッズ・サプリメントの専門店。",
+              lore: "店主おすすめのビタミンサプリが人気。「まずは水をしっかり飲むことから」が口癖。"),
+        .init(id: "B028", name: "公民館", axis: .lifestyle, requiredCP: 1_000,
+              description: "地域コミュニティの集会・教室が開かれる場所。",
+              lore: "料理教室、ストレッチ会、読書会——住民同士の繋がりが、健康な街を支える見えない力。"),
     ]
 }

@@ -37,6 +37,7 @@ final class NPCNode: SKSpriteNode {
         // 足元を基準にアンカー設定
         self.anchorPoint = CGPoint(x: 0.5, y: 0.1)
         self.name = "npc_\(Int.random(in: 1000...9999))"
+        self.isUserInteractionEnabled = true
     }
 
     required init?(coder aDecoder: NSCoder) { fatalError() }
@@ -186,4 +187,89 @@ final class NPCNode: SKSpriteNode {
             SKAction.removeFromParent()
         ]))
     }
+
+    /// タップ時の吹き出し（長めのメッセージを表示する）
+    func showSpeechBubble(_ text: String) {
+        guard childNode(withName: "speech") == nil else { return }
+
+        let container = SKNode()
+        container.position = CGPoint(x: 0, y: 44)
+        container.zPosition = 210
+        container.name = "speech"
+        container.alpha = 0
+        container.setScale(0.6)
+        addChild(container)
+
+        let label = SKLabelNode(text: text)
+        label.fontSize = 9
+        label.fontName = "AvenirNext-Bold"
+        label.fontColor = .black
+        label.horizontalAlignmentMode = .center
+        label.verticalAlignmentMode = .center
+
+        let padding: CGFloat = 8
+        let bgWidth  = label.frame.width + padding * 2
+        let bgHeight = label.frame.height + padding
+
+        let bg = SKShapeNode(rect: CGRect(
+            x: -bgWidth / 2, y: -bgHeight / 2,
+            width: bgWidth, height: bgHeight
+        ), cornerRadius: 6)
+        bg.fillColor   = .white
+        bg.strokeColor = UIColor(white: 0.5, alpha: 0.8)
+        bg.lineWidth   = 0.8
+
+        container.addChild(bg)
+        container.addChild(label)
+
+        container.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.fadeIn(withDuration: 0.12),
+                SKAction.scale(to: 1.0, duration: 0.18)
+            ]),
+            SKAction.wait(forDuration: 2.2),
+            SKAction.group([
+                SKAction.moveBy(x: 0, y: 10, duration: 0.4),
+                SKAction.fadeOut(withDuration: 0.4)
+            ]),
+            SKAction.removeFromParent()
+        ]))
+    }
+
+    // MARK: - タッチ処理
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        let msg = currentMessage()
+        showSpeechBubble(msg)
+
+        run(SKAction.sequence([
+            SKAction.scale(to: 1.15, duration: 0.1),
+            SKAction.scale(to: 1.0,  duration: 0.15)
+        ]))
+
+        Task { @MainActor in HapticEngine.tapLight() }
+    }
+
+    private func currentMessage() -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour >= 22 || hour < 5 {
+            let pool = NPCType.nightMessages + npcType.roleMessages
+            return pool.randomElement() ?? "…"
+        }
+        let pool = npcType.roleMessages + Self.sharedMessages
+        return pool.randomElement() ?? "今日も頑張ろう！"
+    }
+
+    private static let sharedMessages: [String] = [
+        "今日も頑張ろう！",
+        "いい天気だね！",
+        "街がにぎやか！",
+        "健康が一番！",
+        "いい調子だね！",
+        "すごい街！",
+        "ありがとう！",
+        "応援してるよ！",
+        "素敵な街だ！",
+        "元気もらった！",
+    ]
 }

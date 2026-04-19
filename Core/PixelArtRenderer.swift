@@ -41,11 +41,96 @@ extension UIColor {
 // MARK: - NPC Type
 
 enum NPCType: Int, CaseIterable {
-    case adventurer = 0  // 参考画像2: ブロンド+オレンジ外套+ティールチュニック
-    case citizen1   = 1  // 青系市民
-    case citizen2   = 2  // 赤系市民
-    case elder      = 3  // 白髪のお年寄り
-    case child      = 4  // 子ども
+    case adventurer = 0  // 旅人（プレイヤーの化身）: 金マント
+    case citizen1   = 1  // ハルナ（運動軸）: 緑トラックウェア
+    case citizen2   = 2  // ミツル（食事軸）: オレンジエプロン
+    case elder      = 3  // ユキ（飲酒自制軸）: 紫作務衣
+    case child      = 4  // リク（睡眠軸）: 青ベレー帽
+    case citizen3   = 5  // アオイ（生活習慣軸）: ピンクカーディガン
+
+    var roleName: String {
+        switch self {
+        case .adventurer: "旅人"
+        case .citizen1:   "ハルナ"
+        case .citizen2:   "ミツル"
+        case .elder:      "ユキ"
+        case .child:      "リク"
+        case .citizen3:   "アオイ"
+        }
+    }
+
+    var axis: CPAxis? {
+        switch self {
+        case .adventurer: nil
+        case .citizen1:   .exercise
+        case .citizen2:   .diet
+        case .elder:      .alcohol
+        case .child:      .sleep
+        case .citizen3:   .lifestyle
+        }
+    }
+
+    var roleMessages: [String] {
+        switch self {
+        case .adventurer:
+            return [
+                "ここまでよく頑張ったね",
+                "街が育ってきた",
+                "次の旅路を考えよう",
+                "この街は君が作った",
+                "素晴らしい景色だ",
+            ]
+        case .citizen1:
+            return [
+                "今日も走ってきた！",
+                "風が気持ちいい",
+                "次はあの坂に挑戦",
+                "一歩が世界を変える",
+                "体を動かすと気分爽快！",
+                "朝ランは最高！",
+            ]
+        case .citizen2:
+            return [
+                "今朝のトマトは最高",
+                "朝食は食べた？",
+                "素材の力を信じて",
+                "旬の野菜が入ったよ",
+                "美味しくて健康！",
+                "今日のスープは自信作",
+            ]
+        case .elder:
+            return [
+                "深呼吸しよう",
+                "静けさに感謝",
+                "月が綺麗だ",
+                "心を整えよう",
+                "お茶でも一杯いかが",
+                "焦らなくていい",
+            ]
+        case .child:
+            return [
+                "よく寝れた？",
+                "今夜は月が綺麗",
+                "7時間が黄金律",
+                "星が見えるよ",
+                "枕を変えたら人生変わる",
+                "おやすみの準備はOK？",
+            ]
+        case .citizen3:
+            return [
+                "いい本があるよ",
+                "水、飲んだ？",
+                "継続は力なり",
+                "今日も記録しよう",
+                "小さな習慣が大きな力に",
+                "読書は心の栄養",
+            ]
+        }
+    }
+
+    static var nightMessages: [String] {
+        ["静かな夜だ…", "おやすみ", "星がきれい", "良い夢を"]
+    }
 }
 
 // MARK: - Building Visual Config
@@ -113,37 +198,45 @@ extension BuildingVisualConfig {
 // MARK: - NPC Color Palettes
 
 private enum NPCColors {
-    /// Returns 8-color palette for the NPC type
+    // 8-color palette: [髪, 肌, 目, 服上, 服下/装飾, ベルト/靴上, 靴, 影]
     static func palette(for type: NPCType) -> [UIColor] {
         switch type {
-        case .adventurer:  // 参考画像2のキャラクター
+        case .adventurer:  // 旅人: 金髪・茶の旅人服・金のマント
             return [UIColor(hex:"E8B84B"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"C97520"), UIColor(hex:"3D8B7A"), UIColor(hex:"8B5E1A"),
+                    UIColor(hex:"C97520"), UIColor(hex:"FFD700"), UIColor(hex:"8B5E1A"),
                     UIColor(hex:"6B3A1F"), UIColor(hex:"3A1F0A")]
-        case .citizen1:
-            return [UIColor(hex:"3A2B1F"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"1565C0"), UIColor(hex:"42A5F5"), UIColor(hex:"5D4037"),
-                    UIColor(hex:"455A64"), UIColor(hex:"212121")]
-        case .citizen2:
-            return [UIColor(hex:"6B3A1F"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"B71C1C"), UIColor(hex:"EF5350"), UIColor(hex:"4E342E"),
-                    UIColor(hex:"3E2723"), UIColor(hex:"212121")]
-        case .elder:
-            return [UIColor(hex:"EEEEEE"), UIColor(hex:"E8C9A0"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"78909C"), UIColor(hex:"B0BEC5"), UIColor(hex:"607D8B"),
-                    UIColor(hex:"546E7A"), UIColor(hex:"37474F")]
-        case .child:
-            return [UIColor(hex:"E8B84B"), UIColor(hex:"FFD59A"), UIColor(hex:"3A2B1F"),
-                    UIColor(hex:"FF7043"), UIColor(hex:"FFCC80"), UIColor(hex:"8D6E63"),
-                    UIColor(hex:"1565C0"), UIColor(hex:"212121")]
+        case .citizen1:  // ハルナ: 濃茶髪・緑トラックウェア・白スニーカー
+            return [UIColor(hex:"5D3A1A"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"34C759"), UIColor(hex:"2DA44E"), UIColor(hex:"5D4037"),
+                    UIColor(hex:"FAFAFA"), UIColor(hex:"BDBDBD")]
+        case .citizen2:  // ミツル: 白髪混じり黒髪・オレンジエプロン・ベージュ
+            return [UIColor(hex:"3A3A3A"), UIColor(hex:"E8C9A0"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"FF9500"), UIColor(hex:"FFB74D"), UIColor(hex:"5D4037"),
+                    UIColor(hex:"D7CCC8"), UIColor(hex:"4E342E")]
+        case .elder:  // ユキ: 黒髪束ね・紫作務衣・草履
+            return [UIColor(hex:"1A1A2E"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"AF52DE"), UIColor(hex:"9C27B0"), UIColor(hex:"F5F5DC"),
+                    UIColor(hex:"8D6E63"), UIColor(hex:"37474F")]
+        case .child:  // リク: 茶髪・青ベレー帽・白衣+青パジャマ風
+            return [UIColor(hex:"8B6914"), UIColor(hex:"FFD59A"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"007AFF"), UIColor(hex:"42A5F5"), UIColor(hex:"FAFAFA"),
+                    UIColor(hex:"1565C0"), UIColor(hex:"0D47A1")]
+        case .citizen3:  // アオイ: 栗色髪・ピンクカーディガン・濃紫スカート
+            return [UIColor(hex:"8B5E3C"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
+                    UIColor(hex:"FF2D55"), UIColor(hex:"FF6B8A"), UIColor(hex:"5D4037"),
+                    UIColor(hex:"6A1B9A"), UIColor(hex:"4A148C")]
         }
     }
 }
 
 // MARK: - NPC Pixel Sprites (8col × 14row)
 // カラーインデックス: 0=transparent, 1-8=palette
+// [1=髪, 2=肌, 3=目, 4=服上(腕), 5=服上(胴), 6=ベルト/装飾, 7=脚/服下, 8=靴]
 
 private enum NPCPixels {
+
+    // MARK: - 共通ベース（adventurer / fallback）
+
     static func idle() -> [[Int]] {
         [[0,0,1,1,1,1,0,0],
          [0,1,1,2,2,1,1,0],
@@ -192,7 +285,6 @@ private enum NPCPixels {
          [8,8,0,0,0,0,8,8],
          [8,0,0,0,0,0,0,8]]
     }
-    /// 歩行中間フレーム（両足クロス）: frame 2 で使用
     static func walkMid() -> [[Int]] {
         [[0,0,1,1,1,1,0,0],
          [0,1,1,2,2,1,1,0],
@@ -209,6 +301,390 @@ private enum NPCPixels {
          [8,0,8,0,0,8,0,8],
          [8,0,0,0,0,0,0,8]]
     }
+
+    // MARK: - ハルナ（citizen1 / 運動）: ショートカット + スリム + ポニーテール
+
+    static func citizen1_idle() -> [[Int]] {
+        [[0,0,1,1,1,1,1,0],  // ポニーテール右に1px突出
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,0,2,2,2,2,0,0],  // 細い首
+         [0,4,5,5,5,5,4,0],  // スリムな上半身
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,6,6,5,4,0],
+         [0,0,7,7,7,7,0,0],  // スリムな腰
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,0,0,7,0,0],
+         [0,0,8,0,0,8,0,0],
+         [0,0,8,0,0,8,0,0],
+         [0,8,8,0,0,8,8,0],
+         [0,8,0,0,0,0,8,0]]
+    }
+    static func citizen1_walkL() -> [[Int]] {
+        [[0,0,1,1,1,1,1,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,0,2,2,2,2,0,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,6,6,5,4,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,7,7,7,0,0],
+         [0,7,7,0,0,7,0,0],
+         [0,8,0,0,0,8,0,0],
+         [8,8,0,0,0,8,0,0],
+         [8,0,0,0,0,8,8,0],
+         [0,0,0,0,0,0,8,0]]
+    }
+    static func citizen1_walkR() -> [[Int]] {
+        [[0,0,1,1,1,1,1,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,0,2,2,2,2,0,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,6,6,5,4,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,0,0,7,7,0],
+         [0,0,8,0,0,0,8,0],
+         [0,0,8,0,0,0,8,8],
+         [0,8,8,0,0,0,0,8],
+         [0,8,0,0,0,0,0,0]]
+    }
+    static func citizen1_walkM() -> [[Int]] {
+        [[0,0,1,1,1,1,1,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,0,2,2,2,2,0,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,6,6,5,4,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,0,0,7,0,0],
+         [0,7,8,0,0,8,7,0],
+         [0,8,0,0,0,0,8,0],
+         [8,0,8,0,0,8,0,8],
+         [8,0,0,0,0,0,0,8]]
+    }
+
+    // MARK: - ミツル（citizen2 / 食事）: エプロン + がっしり体格
+
+    static func citizen2_idle() -> [[Int]] {
+        [[0,0,1,1,1,1,0,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,5,5,5,5,5,5,4],  // 幅広の上半身
+         [4,5,6,6,6,6,5,4],  // エプロン上部
+         [4,5,6,6,6,6,5,4],  // エプロン中部
+         [4,5,6,6,6,6,5,4],  // エプロン下部
+         [0,7,7,6,6,7,7,0],  // エプロン紐
+         [0,7,0,0,0,0,7,0],
+         [0,8,7,0,0,7,8,0],
+         [0,8,8,0,0,8,8,0],
+         [8,8,0,0,0,0,8,8],
+         [8,0,0,0,0,0,0,8]]
+    }
+    static func citizen2_walkL() -> [[Int]] {
+        [[0,0,1,1,1,1,0,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,5,5,5,5,5,5,4],
+         [4,5,6,6,6,6,5,4],
+         [4,5,6,6,6,6,5,4],
+         [4,5,6,6,6,6,5,4],
+         [0,7,7,6,6,7,7,0],
+         [7,7,0,0,0,7,0,0],
+         [8,8,0,0,0,7,8,0],
+         [8,8,0,0,0,8,8,0],
+         [8,8,0,0,0,0,8,8],
+         [8,0,0,0,0,0,0,8]]
+    }
+    static func citizen2_walkR() -> [[Int]] {
+        [[0,0,1,1,1,1,0,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,5,5,5,5,5,5,4],
+         [4,5,6,6,6,6,5,4],
+         [4,5,6,6,6,6,5,4],
+         [4,5,6,6,6,6,5,4],
+         [0,7,7,6,6,7,7,0],
+         [0,0,7,0,0,0,7,7],
+         [0,8,7,0,0,0,8,8],
+         [0,8,8,0,0,0,8,8],
+         [8,8,0,0,0,0,8,8],
+         [8,0,0,0,0,0,0,8]]
+    }
+    static func citizen2_walkM() -> [[Int]] {
+        [[0,0,1,1,1,1,0,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,5,5,5,5,5,5,4],
+         [4,5,6,6,6,6,5,4],
+         [4,5,6,6,6,6,5,4],
+         [4,5,6,6,6,6,5,4],
+         [0,7,7,6,6,7,7,0],
+         [0,7,0,0,0,0,7,0],
+         [7,8,0,0,0,0,8,7],
+         [8,0,7,0,0,7,0,8],
+         [8,0,8,0,0,8,0,8],
+         [8,0,0,0,0,0,0,8]]
+    }
+
+    // MARK: - ユキ（elder / 飲酒自制）: 和服ローブ（長い裾）+ 髪束ね
+
+    static func elder_idle() -> [[Int]] {
+        [[0,0,1,1,1,0,0,0],  // 束ねた髪（左寄り）
+         [0,1,1,2,2,1,0,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,4,5,5,5,5,4,4],
+         [4,5,5,5,5,5,5,4],  // 和服の襟
+         [4,5,5,6,6,5,5,4],  // 帯
+         [0,5,5,6,6,5,5,0],  // 帯
+         [0,5,5,5,5,5,5,0],  // 和服の裾（長い）
+         [0,5,5,5,5,5,5,0],  // 和服の裾
+         [0,5,5,0,0,5,5,0],  // 裾の裂け目
+         [0,5,5,0,0,5,5,0],
+         [0,8,8,0,0,8,8,0],  // 草履
+         [0,8,0,0,0,0,8,0]]
+    }
+    static func elder_walkL() -> [[Int]] {
+        [[0,0,1,1,1,0,0,0],
+         [0,1,1,2,2,1,0,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,4,5,5,5,5,4,4],
+         [4,5,5,5,5,5,5,4],
+         [4,5,5,6,6,5,5,4],
+         [0,5,5,6,6,5,5,0],
+         [0,5,5,5,5,5,5,0],
+         [5,5,5,0,0,5,0,0],
+         [8,8,0,0,0,5,8,0],
+         [8,0,0,0,0,8,8,0],
+         [0,0,0,0,0,0,8,0],
+         [0,0,0,0,0,0,0,0]]
+    }
+    static func elder_walkR() -> [[Int]] {
+        [[0,0,1,1,1,0,0,0],
+         [0,1,1,2,2,1,0,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,4,5,5,5,5,4,4],
+         [4,5,5,5,5,5,5,4],
+         [4,5,5,6,6,5,5,4],
+         [0,5,5,6,6,5,5,0],
+         [0,5,5,5,5,5,5,0],
+         [0,0,5,0,0,5,5,5],
+         [0,8,5,0,0,0,8,8],
+         [0,8,8,0,0,0,0,8],
+         [0,8,0,0,0,0,0,0],
+         [0,0,0,0,0,0,0,0]]
+    }
+    static func elder_walkM() -> [[Int]] {
+        [[0,0,1,1,1,0,0,0],
+         [0,1,1,2,2,1,0,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [4,4,5,5,5,5,4,4],
+         [4,5,5,5,5,5,5,4],
+         [4,5,5,6,6,5,5,4],
+         [0,5,5,6,6,5,5,0],
+         [0,5,5,5,5,5,5,0],
+         [0,5,5,0,0,5,5,0],
+         [5,8,5,0,0,5,8,5],
+         [8,0,0,0,0,0,0,8],
+         [8,0,8,0,0,8,0,8],
+         [0,0,0,0,0,0,0,0]]
+    }
+
+    // MARK: - リク（child / 睡眠）: ベレー帽 + 丸眼鏡
+
+    static func child_idle() -> [[Int]] {
+        [[0,4,4,4,4,4,0,0],  // ベレー帽（服上色=青）
+         [0,1,1,1,1,1,1,0],  // 帽子の縁 + 髪
+         [0,1,2,3,3,2,1,0],  // 丸眼鏡（目の周りに色3の枠）
+         [0,1,2,2,2,2,1,0],
+         [0,4,5,5,5,5,4,0],  // 白衣
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,6,6,5,4,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,0,0,7,0,0],
+         [0,0,8,7,7,8,0,0],
+         [0,0,8,0,0,8,0,0],
+         [0,8,8,0,0,8,8,0],
+         [0,8,0,0,0,0,8,0]]
+    }
+    static func child_walkL() -> [[Int]] {
+        [[0,4,4,4,4,4,0,0],
+         [0,1,1,1,1,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,6,6,5,4,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,7,7,7,0,0],
+         [0,7,7,0,0,7,0,0],
+         [0,8,0,0,0,8,0,0],
+         [8,8,0,0,0,8,0,0],
+         [8,0,0,0,0,8,8,0],
+         [0,0,0,0,0,0,8,0]]
+    }
+    static func child_walkR() -> [[Int]] {
+        [[0,4,4,4,4,4,0,0],
+         [0,1,1,1,1,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,6,6,5,4,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,0,0,7,7,0],
+         [0,0,8,0,0,0,8,0],
+         [0,0,8,0,0,0,8,8],
+         [0,8,8,0,0,0,0,8],
+         [0,8,0,0,0,0,0,0]]
+    }
+    static func child_walkM() -> [[Int]] {
+        [[0,4,4,4,4,4,0,0],
+         [0,1,1,1,1,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [0,1,2,2,2,2,1,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,5,5,5,4,0],
+         [0,4,5,6,6,5,4,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,7,0,0,7,0,0],
+         [0,7,8,0,0,8,7,0],
+         [0,8,0,0,0,0,8,0],
+         [8,0,8,0,0,8,0,8],
+         [8,0,0,0,0,0,0,8]]
+    }
+
+    // MARK: - アオイ（citizen3 / 生活習慣）: ロングスカート + 三つ編み + 本
+
+    static func citizen3_idle() -> [[Int]] {
+        [[0,1,1,1,1,1,0,0],  // 三つ編み（左に長い）
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [1,1,2,2,2,2,1,0],  // 三つ編み垂れ
+         [4,4,5,5,5,5,4,0],
+         [4,5,5,5,5,5,4,0],
+         [4,5,5,6,6,5,4,0],
+         [0,7,7,7,7,7,7,0],  // スカート上部
+         [0,7,7,7,7,7,7,0],
+         [0,7,7,7,7,7,7,0],  // ロングスカート
+         [0,7,7,7,7,7,7,0],
+         [0,0,7,7,7,7,0,0],
+         [0,0,8,0,0,8,0,0],
+         [0,0,8,0,0,8,0,0]]
+    }
+    static func citizen3_walkL() -> [[Int]] {
+        [[0,1,1,1,1,1,0,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [1,1,2,2,2,2,1,0],
+         [4,4,5,5,5,5,4,0],
+         [4,5,5,5,5,5,4,0],
+         [4,5,5,6,6,5,4,0],
+         [0,7,7,7,7,7,7,0],
+         [0,7,7,7,7,7,7,0],
+         [7,7,7,7,7,7,0,0],
+         [8,7,7,0,0,7,0,0],
+         [8,0,0,0,0,7,0,0],
+         [0,0,0,0,0,8,8,0],
+         [0,0,0,0,0,0,8,0]]
+    }
+    static func citizen3_walkR() -> [[Int]] {
+        [[0,1,1,1,1,1,0,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [1,1,2,2,2,2,1,0],
+         [4,4,5,5,5,5,4,0],
+         [4,5,5,5,5,5,4,0],
+         [4,5,5,6,6,5,4,0],
+         [0,7,7,7,7,7,7,0],
+         [0,7,7,7,7,7,7,0],
+         [0,0,7,7,7,7,7,7],
+         [0,0,7,0,0,7,7,8],
+         [0,0,7,0,0,0,0,8],
+         [0,8,8,0,0,0,0,0],
+         [0,8,0,0,0,0,0,0]]
+    }
+    static func citizen3_walkM() -> [[Int]] {
+        [[0,1,1,1,1,1,0,0],
+         [0,1,1,2,2,1,1,0],
+         [0,1,2,3,3,2,1,0],
+         [1,1,2,2,2,2,1,0],
+         [4,4,5,5,5,5,4,0],
+         [4,5,5,5,5,5,4,0],
+         [4,5,5,6,6,5,4,0],
+         [0,7,7,7,7,7,7,0],
+         [0,7,7,7,7,7,7,0],
+         [0,7,7,7,7,7,7,0],
+         [0,7,7,0,0,7,7,0],
+         [0,0,8,0,0,8,0,0],
+         [0,8,0,8,8,0,8,0],
+         [0,8,0,0,0,0,8,0]]
+    }
+
+    // MARK: - タイプ別ピクセル取得
+
+    static func pixels(for type: NPCType, frame: Int) -> [[Int]] {
+        switch type {
+        case .citizen1:
+            switch frame % 4 {
+            case 1: return citizen1_walkL()
+            case 2: return citizen1_walkM()
+            case 3: return citizen1_walkR()
+            default: return citizen1_idle()
+            }
+        case .citizen2:
+            switch frame % 4 {
+            case 1: return citizen2_walkL()
+            case 2: return citizen2_walkM()
+            case 3: return citizen2_walkR()
+            default: return citizen2_idle()
+            }
+        case .elder:
+            switch frame % 4 {
+            case 1: return elder_walkL()
+            case 2: return elder_walkM()
+            case 3: return elder_walkR()
+            default: return elder_idle()
+            }
+        case .child:
+            switch frame % 4 {
+            case 1: return child_walkL()
+            case 2: return child_walkM()
+            case 3: return child_walkR()
+            default: return child_idle()
+            }
+        case .citizen3:
+            switch frame % 4 {
+            case 1: return citizen3_walkL()
+            case 2: return citizen3_walkM()
+            case 3: return citizen3_walkR()
+            default: return citizen3_idle()
+            }
+        case .adventurer:
+            switch frame % 4 {
+            case 1: return walkLeft()
+            case 2: return walkMid()
+            case 3: return walkRight()
+            default: return idle()
+            }
+        }
+    }
 }
 
 // MARK: - PixelArtRenderer (Public API)
@@ -222,7 +698,7 @@ enum PixelArtRenderer {
     // NSCache: スレッドセーフ + メモリ警告時に自動解放（Dictionary より安全）
     private static let cache: NSCache<NSString, SKTexture> = {
         let c = NSCache<NSString, SKTexture>()
-        c.countLimit = 200   // テクスチャ枚数上限（建物30種×5Lv + NPC + タイル + 装飾）
+        c.countLimit = 280   // テクスチャ枚数上限（建物30種×5Lv + NPC6種×4f + タイル + 装飾）
         return c
     }()
 
@@ -293,6 +769,14 @@ enum PixelArtRenderer {
         }
     }
 
+    static func cobblestoneTile() -> SKTexture {
+        cached("cobblestone") {
+            assetTexture("tile_cobblestone") ??
+            isoTile(top: UIColor(hex:"C8B8A0"), shadow: UIColor(hex:"8A7A60"),
+                    grass: false, cobblestone: true)
+        }
+    }
+
     // MARK: - Building Textures
 
     static func buildingTexture(id: String, level: Int) -> SKTexture {
@@ -345,6 +829,8 @@ enum PixelArtRenderer {
                 ?? npcSprite(type: type, frame: f)
         }
     }
+
+    static func npcAllTypes() -> [NPCType] { NPCType.allCases }
 
     // MARK: - Tree
 
@@ -416,11 +902,93 @@ enum PixelArtRenderer {
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
 
+    // MARK: - Flower Pot
+
+    static func flowerPotTexture() -> SKTexture {
+        cached("flowerpot") {
+            assetTexture("deco_flowerpot") ?? makeFlowerPotTexture()
+        }
+    }
+
+    private static func makeFlowerPotTexture() -> SKTexture {
+        let w: CGFloat = 10, h: CGFloat = 14
+        let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+            let cg = ctx.cgContext
+            cg.setFillColor(UIColor(hex: "A1887F").cgColor)
+            cg.fill(CGRect(x: 2, y: 7, width: 6, height: 6))
+            cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
+            cg.fill(CGRect(x: 1, y: 7, width: 8, height: 2))
+            cg.setFillColor(UIColor(hex: "4CAF50").cgColor)
+            cg.fillEllipse(in: CGRect(x: 1, y: 2, width: 4, height: 5))
+            cg.fillEllipse(in: CGRect(x: 5, y: 1, width: 4, height: 5))
+            cg.setFillColor(UIColor(hex: "FF5252").cgColor)
+            cg.fill(CGRect(x: 3, y: 2, width: 2, height: 2))
+            cg.setFillColor(UIColor(hex: "FFEB3B").cgColor)
+            cg.fill(CGRect(x: 6, y: 1, width: 2, height: 2))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    // MARK: - Signpost
+
+    static func signpostTexture() -> SKTexture {
+        cached("signpost") {
+            assetTexture("deco_signpost") ?? makeSignpostTexture()
+        }
+    }
+
+    private static func makeSignpostTexture() -> SKTexture {
+        let w: CGFloat = 12, h: CGFloat = 20
+        let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+            let cg = ctx.cgContext
+            cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+            cg.fill(CGRect(x: 5, y: 5, width: 2, height: 15))
+            cg.setFillColor(UIColor(hex: "FFF9C4").cgColor)
+            cg.fill(CGRect(x: 0, y: 2, width: 10, height: 5))
+            cg.setStrokeColor(UIColor(hex: "8D6E63").cgColor)
+            cg.setLineWidth(0.5)
+            cg.stroke(CGRect(x: 0, y: 2, width: 10, height: 5))
+            cg.setFillColor(UIColor(hex: "5D4037").withAlphaComponent(0.4).cgColor)
+            cg.fill(CGRect(x: 1, y: 3, width: 8, height: 1))
+            cg.fill(CGRect(x: 1, y: 5, width: 6, height: 1))
+            cg.setFillColor(UIColor(hex: "4E342E").cgColor)
+            cg.fill(CGRect(x: 4, y: 18, width: 4, height: 2))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    // MARK: - Water Well
+
+    static func waterWellTexture() -> SKTexture {
+        cached("waterwell") {
+            assetTexture("deco_waterwell") ?? makeWaterWellTexture()
+        }
+    }
+
+    private static func makeWaterWellTexture() -> SKTexture {
+        let w: CGFloat = 16, h: CGFloat = 18
+        let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+            let cg = ctx.cgContext
+            cg.setFillColor(UIColor(hex: "B0BEC5").cgColor)
+            cg.fillEllipse(in: CGRect(x: 1, y: 8, width: 14, height: 8))
+            cg.setFillColor(UIColor(hex: "4FC3F7").withAlphaComponent(0.6).cgColor)
+            cg.fillEllipse(in: CGRect(x: 3, y: 10, width: 10, height: 4))
+            cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+            cg.fill(CGRect(x: 3, y: 2, width: 2, height: 8))
+            cg.fill(CGRect(x: 11, y: 2, width: 2, height: 8))
+            cg.fill(CGRect(x: 3, y: 1, width: 10, height: 2))
+            cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
+            cg.fill(CGRect(x: 6, y: 0, width: 3, height: 4))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
     // ────────────────────────────────────────────────────────────────
     // MARK: - Private: Iso Tile
     // ────────────────────────────────────────────────────────────────
 
-    private static func isoTile(top: UIColor, shadow: UIColor, grass: Bool, roadMarkings: Bool = false) -> SKTexture {
+    private static func isoTile(top: UIColor, shadow: UIColor, grass: Bool,
+                                roadMarkings: Bool = false, cobblestone: Bool = false) -> SKTexture {
         let w = tileW, h = tileH
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
@@ -457,6 +1025,20 @@ enum PixelArtRenderer {
                         cg.fill(CGRect(x: x, y: y - 0.75, width: 3, height: 1.5))
                     }
                     step += 2
+                }
+            }
+            // 石畳パターン（プレミアム用）
+            if cobblestone {
+                cg.setStrokeColor(shadow.withAlphaComponent(0.3).cgColor)
+                cg.setLineWidth(0.5)
+                for row in stride(from: CGFloat(4), to: h - 2, by: 5) {
+                    let offset = Int(row / 5) % 2 == 0 ? CGFloat(0) : CGFloat(6)
+                    for col in stride(from: offset + 4, to: w - 4, by: 12) {
+                        let bx = col, by = row
+                        if abs(bx - w/2)/(w/2) + abs(by - h/2)/(h/2) <= 0.8 {
+                            cg.stroke(CGRect(x: bx, y: by, width: 8, height: 4))
+                        }
+                    }
                 }
             }
             // アウトライン
@@ -583,6 +1165,9 @@ enum PixelArtRenderer {
             // ── 屋根デコレーション（アウトラインの上に描画）──────────
             drawRoofDecoration(cg: cg, id: id, config: config,
                                roofBaseY: roofBaseY, w: w, level: level, flagFrame: flagFrame)
+
+            // ── 軸別グラウンド装飾 ────────────────────────────────
+            drawGroundDecoration(cg: cg, id: id, baseY: baseY, w: w, level: level)
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
@@ -782,21 +1367,127 @@ enum PixelArtRenderer {
         }
     }
 
+    /// 軸別グラウンド装飾（建物足元に軸の特徴を描画）
+    private static func drawGroundDecoration(
+        cg: CGContext, id: String, baseY: CGFloat, w: CGFloat, level: Int
+    ) {
+        switch id {
+        // ── 運動軸: 芝生パッチ + 小旗 ──
+        case "B001", "B002", "B003", "B004", "B005", "B006":
+            // 右側に小さな芝生
+            cg.setFillColor(UIColor(hex: "4CAF50").withAlphaComponent(0.5).cgColor)
+            cg.fill(CGRect(x: w - 12, y: baseY - 3, width: 8, height: 2))
+            if level >= 3 {
+                // ミニ旗
+                cg.setFillColor(UIColor(hex: "34C759").cgColor)
+                cg.fill(CGRect(x: w - 6, y: baseY - 10, width: 1, height: 7))
+                cg.fill(CGRect(x: w - 5, y: baseY - 10, width: 4, height: 3))
+            }
+
+        // ── 食事軸: プランター + テラス席 ──
+        case "B007", "B008", "B009", "B010", "B011", "B012":
+            // プランター（右面足元）
+            cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
+            cg.fill(CGRect(x: w - 10, y: baseY - 5, width: 6, height: 3))
+            cg.setFillColor(UIColor(hex: "4CAF50").cgColor)
+            cg.fillEllipse(in: CGRect(x: w - 9, y: baseY - 8, width: 4, height: 4))
+            if level >= 3 {
+                // テラス席（小さなパラソル）
+                cg.setFillColor(UIColor(hex: "FF9500").withAlphaComponent(0.6).cgColor)
+                cg.fill(CGRect(x: w - 16, y: baseY - 10, width: 6, height: 1))
+                cg.setFillColor(UIColor(hex: "6D4C41").cgColor)
+                cg.fill(CGRect(x: w - 14, y: baseY - 9, width: 1, height: 7))
+            }
+
+        // ── 飲酒軸: 石灯籠 + 砂利 ──
+        case "B013", "B014", "B015", "B016":
+            // 砂利テクスチャ（足元）
+            cg.setFillColor(UIColor(hex: "D7CCC8").withAlphaComponent(0.4).cgColor)
+            cg.fill(CGRect(x: w/2 + 2, y: baseY - 2, width: 10, height: 2))
+            if level >= 2 {
+                // 石灯籠
+                cg.setFillColor(UIColor(hex: "9E9E9E").cgColor)
+                cg.fill(CGRect(x: w - 8, y: baseY - 10, width: 3, height: 8))
+                cg.fill(CGRect(x: w - 9, y: baseY - 11, width: 5, height: 2))
+                cg.setFillColor(UIColor(hex: "FFE082").withAlphaComponent(0.6).cgColor)
+                cg.fill(CGRect(x: w - 7, y: baseY - 8, width: 1, height: 1))
+            }
+
+        // ── 睡眠軸: 星型装飾 + 月のオブジェ ──
+        case "B017", "B018", "B020", "B021", "B022":
+            if level >= 2 {
+                // 小さな星
+                cg.setFillColor(UIColor(hex: "FFF176").withAlphaComponent(0.7).cgColor)
+                cg.fill(CGRect(x: w - 8, y: baseY - 7, width: 2, height: 2))
+                cg.fill(CGRect(x: w - 7, y: baseY - 8, width: 0, height: 0))
+            }
+            if level >= 4 {
+                // 月のオブジェ
+                cg.setFillColor(UIColor(hex: "FFF9C4").cgColor)
+                cg.fillEllipse(in: CGRect(x: w - 14, y: baseY - 11, width: 5, height: 5))
+                cg.setFillColor(UIColor(hex: "007AFF").withAlphaComponent(0.3).cgColor)
+                cg.fillEllipse(in: CGRect(x: w - 12, y: baseY - 11, width: 4, height: 4))
+            }
+
+        // ── 生活習慣軸: 花壇 + ベンチ ──
+        case "B019", "B023", "B024", "B026", "B027", "B028":
+            // 花壇
+            cg.setFillColor(UIColor(hex: "795548").cgColor)
+            cg.fill(CGRect(x: w - 12, y: baseY - 4, width: 8, height: 3))
+            let flowerColors = ["FF2D55", "FF9500", "FFEB3B"]
+            for (i, hex) in flowerColors.enumerated() {
+                cg.setFillColor(UIColor(hex: hex).cgColor)
+                cg.fill(CGRect(x: w - 11 + CGFloat(i) * 3, y: baseY - 6, width: 2, height: 2))
+            }
+            if level >= 3 {
+                // ベンチ
+                cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
+                cg.fill(CGRect(x: 2, y: baseY - 4, width: 8, height: 2))
+                cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+                cg.fill(CGRect(x: 3, y: baseY - 2, width: 2, height: 2))
+                cg.fill(CGRect(x: 7, y: baseY - 2, width: 2, height: 2))
+            }
+
+        // ── 市庁舎: 噴水 + 階段 ──
+        case "B025":
+            if level >= 2 {
+                // 階段（3段）
+                cg.setFillColor(UIColor(hex: "D9C87A").withAlphaComponent(0.5).cgColor)
+                cg.fill(CGRect(x: w/8 - 3, y: baseY - 2, width: 9, height: 2))
+                cg.fill(CGRect(x: w/8 - 2, y: baseY - 4, width: 7, height: 2))
+            }
+            if level >= 4 {
+                // 噴水のベース
+                cg.setFillColor(UIColor(hex: "B0BEC5").cgColor)
+                cg.fillEllipse(in: CGRect(x: w - 14, y: baseY - 6, width: 8, height: 4))
+                cg.setFillColor(UIColor(hex: "90CAF9").withAlphaComponent(0.5).cgColor)
+                cg.fillEllipse(in: CGRect(x: w - 12, y: baseY - 5, width: 4, height: 2))
+            }
+
+        // ── ペナルティ: 散乱ゴミ ──
+        case "B029":
+            cg.setFillColor(UIColor(hex: "795548").withAlphaComponent(0.4).cgColor)
+            cg.fill(CGRect(x: w - 8, y: baseY - 3, width: 3, height: 2))
+            cg.fill(CGRect(x: w - 14, y: baseY - 2, width: 2, height: 1))
+        case "B030":
+            // ツタ（左面）
+            cg.setFillColor(UIColor(hex: "4CAF50").withAlphaComponent(0.35).cgColor)
+            cg.fill(CGRect(x: 2, y: baseY - 18, width: 3, height: 14))
+            cg.fill(CGRect(x: 4, y: baseY - 12, width: 2, height: 4))
+
+        default: break
+        }
+    }
+
     // ────────────────────────────────────────────────────────────────
     // MARK: - Private: NPC Sprite
     // ────────────────────────────────────────────────────────────────
 
     private static func npcSprite(type: NPCType, frame: Int) -> SKTexture {
-        let ps: CGFloat = 3   // 1論理ピクセル = 3×3 実ピクセル
+        let ps: CGFloat = 3
         let cols = 8, rows = 14
         let palette = NPCColors.palette(for: type)
-        let pixels: [[Int]]
-        switch frame % 4 {
-        case 1: pixels = NPCPixels.walkLeft()
-        case 2: pixels = NPCPixels.walkMid()
-        case 3: pixels = NPCPixels.walkRight()
-        default: pixels = NPCPixels.idle()
-        }
+        let pixels = NPCPixels.pixels(for: type, frame: frame)
         let img = UIGraphicsImageRenderer(
             size: CGSize(width: CGFloat(cols)*ps, height: CGFloat(rows)*ps)
         ).image { ctx in

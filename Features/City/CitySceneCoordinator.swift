@@ -36,6 +36,9 @@ final class CitySceneCoordinator {
     var isPremium:      Bool   = false
     var cityLevel:      Int    = 1
 
+    /// 街レベルアップ報酬の保留通知（UI 表示用）
+    var pendingLevelUpReward: CityLevelReward? = nil
+
     // MARK: - SpriteKit シーン参照（弱参照）
 
     weak var scene: CityScene?
@@ -113,13 +116,8 @@ final class CitySceneCoordinator {
             scene?.onCPAdded(axis: .lifestyle, amount: delta)
             updateNPCCount()
             let newLevel = cityLevel
-            if newLevel > prevLevel, let scene {
-                SpriteEffects.flashScreen(
-                    in: scene.cameraNodeForFX, size: scene.size,
-                    color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
-                    peakAlpha: 0.30, duration: 0.55
-                )
-                HapticEngine.success()
+            if newLevel > prevLevel {
+                awardLevelUpReward(newLevel: newLevel)
             }
             checkMapExpansion()
         }
@@ -137,22 +135,18 @@ final class CitySceneCoordinator {
         totalCP = min(totalCP + amount, 999_999)
         todayCP = min(todayCP + amount, 500)
         scene?.onCPAdded(axis: axis, amount: amount)
-        // 建物ボーナスを XP ブーストとして適用（建設済み建物が多いほど建物が速くレベルアップ）
-        let boost = BuildingBonusCalculator.xpBoostMultiplier(for: axis, builtIds: builtBuildingIds)
-        let boostedXP = Int(Double(amount) * boost)
+        // 建物ボーナス × 天気ブーストを XP に適用
+        let buildingBoost = BuildingBonusCalculator.xpBoostMultiplier(for: axis, builtIds: builtBuildingIds)
+        let weatherBoost  = weatherXPMultiplier
+        let boostedXP = Int(Double(amount) * buildingBoost * weatherBoost)
         scene?.addXPToBuildings(axis: axis, amount: boostedXP)
         updateWeather()
         updateNPCCount()
-        // 街レベルが上がった瞬間は強めの触覚 + 全画面祝福フラッシュ
+        // 街レベルが上がった瞬間は強めの触覚 + 全画面祝福フラッシュ + レベル報酬
         let prevCityLevel = cityLevelFor(cp: prevTotal)
         let newCityLevel  = cityLevel
-        if newCityLevel > prevCityLevel, let scene {
-            SpriteEffects.flashScreen(
-                in: scene.cameraNodeForFX, size: scene.size,
-                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
-                peakAlpha: 0.32, duration: 0.55
-            )
-            HapticEngine.success()
+        if newCityLevel > prevCityLevel {
+            awardLevelUpReward(newLevel: newCityLevel)
         } else {
             HapticEngine.tapLight()
         }
@@ -177,8 +171,9 @@ final class CitySceneCoordinator {
 
     /// 歩数更新（HealthKit バックグラウンド）
     func updateStepCount(_ steps: Int) {
-        scene?.updateNPCCount(Int(Double(steps) / 10_000.0 * 10) + 1)
-        npcCount = min(steps / 1000, 20)
+        let stepNPCs = min(steps / 1000, 50)
+        scene?.updateNPCCount(stepNPCs)
+        npcCount = stepNPCs
     }
 
     /// 時刻変化（毎時）
@@ -205,6 +200,123 @@ final class CitySceneCoordinator {
         BuildingBonusCalculator.bonus(for: axis, builtIds: builtBuildingIds)
     }
 
+    // MARK: - 街レベルアップ報酬
+
+    /// レベルアップ報酬テーブル
+    static let levelRewards: [Int: CityLevelReward] = [
+        2:  CityLevelReward(level: 2,  bonusCP: 50,   title: "村からの出発",     description: "住人が集まり始めた！"),
+        3:  CityLevelReward(level: 3,  bonusCP: 100,  title: "発展の兆し",       description: "街並みが整い始めた"),
+        4:  CityLevelReward(level: 4,  bonusCP: 150,  title: "活気ある街",       description: "マップが拡張された！"),
+        5:  CityLevelReward(level: 5,  bonusCP: 200,  title: "繁栄する都市",     description: "建物が賑わっている"),
+        6:  CityLevelReward(level: 6,  bonusCP: 300,  title: "文化都市",         description: "住民が文化を楽しんでいる"),
+        7:  CityLevelReward(level: 7,  bonusCP: 400,  title: "大都市",           description: "マップがさらに拡張された！"),
+        8:  CityLevelReward(level: 8,  bonusCP: 500,  title: "健康都市宣言",     description: "健康の街として有名に"),
+        9:  CityLevelReward(level: 9,  bonusCP: 750,  title: "メガシティ",       description: "最大マップ解放！"),
+        10: CityLevelReward(level: 10, bonusCP: 1000, title: "VITA CITY 完成",  description: "伝説の健康都市の誕生！"),
+    ]
+
+    /// レベルアップ報酬を付与（金色フラッシュ + ボーナス CP + UI 通知）
+    private func awardLevelUpReward(newLevel: Int) {
+        updateCityLevel()
+
+        if let scene {
+            SpriteEffects.flashScreen(
+                in: scene.cameraNodeForFX, size: scene.size,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                peakAlpha: 0.35, duration: 0.65
+            )
+            SpriteEffects.spawnSparkleBurst(
+                at: scene.cameraNodeForFX.position, in: scene.cameraNodeForFX,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                count: 18, radius: 80, zPosition: 700
+            )
+        }
+        HapticEngine.levelUpBurst()
+
+        if let reward = Self.levelRewards[newLevel] {
+            totalCP = min(totalCP + reward.bonusCP, 999_999)
+            pendingLevelUpReward = reward
+        }
+    }
+
+    // MARK: - ログインボーナス（ごほうび CP）
+
+    /// ログインボーナス CP を付与する
+    /// - todayCP には加算しない（天気判定に影響させず、純粋な「ごほうび」として扱う）
+    /// - totalCP のみ加算 → 建物解放・街レベル・マップ拡張に貢献
+    func awardLoginBonus(amount: Int) {
+        guard amount > 0 else { return }
+        let prevLevel = cityLevelFor(cp: totalCP)
+        totalCP = min(totalCP + amount, 999_999)
+
+        // 軽めの演出（ストリークマイルストーン側で強い演出が出るので重複回避）
+        if let scene {
+            SpriteEffects.spawnSparkleBurst(
+                at: scene.cameraNodeForFX.position, in: scene.cameraNodeForFX,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                count: 12, radius: 70, zPosition: 700
+            )
+        }
+
+        // 街レベルが上がった場合のみ全画面フラッシュ
+        let newLevel = cityLevelFor(cp: totalCP)
+        if newLevel > prevLevel, let scene {
+            SpriteEffects.flashScreen(
+                in: scene.cameraNodeForFX, size: scene.size,
+                color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                peakAlpha: 0.28, duration: 0.5
+            )
+            updateCityLevel()
+        }
+        updateNPCCount()
+        checkMapExpansion()
+    }
+
+    // MARK: - ストリークマイルストーンボーナス
+
+    /// ストリーク日数に応じたボーナス CP を返す（マイルストーン到達時のみ）
+    /// 呼び出し側で previousStreak < milestone && newStreak >= milestone を判定すること
+    static let streakMilestones: [(days: Int, bonusCP: Int, label: String)] = [
+        (7,   50,  "1週間継続！"),
+        (14,  100, "2週間継続！"),
+        (30,  200, "1ヶ月継続！"),
+        (60,  350, "2ヶ月継続！"),
+        (100, 500, "100日達成！"),
+    ]
+
+    /// ストリーク更新時に呼ぶ。マイルストーン達成ならボーナス CP を加算しエフェクトを発動する
+    func checkStreakMilestone(previousStreak: Int, newStreak: Int) {
+        for milestone in Self.streakMilestones {
+            if previousStreak < milestone.days && newStreak >= milestone.days {
+                let prevLevel = cityLevelFor(cp: totalCP)
+                totalCP = min(totalCP + milestone.bonusCP, 999_999)
+
+                if let scene {
+                    // 金色フラッシュ（レベルアップと同格の祝福）
+                    SpriteEffects.flashScreen(
+                        in: scene.cameraNodeForFX, size: scene.size,
+                        color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
+                        peakAlpha: 0.35, duration: 0.6
+                    )
+                    // スパークルバースト（画面中央）
+                    SpriteEffects.spawnSparkleBurst(
+                        at: scene.cameraNodeForFX.position, in: scene.cameraNodeForFX,
+                        color: UIColor(red: 1.0, green: 0.60, blue: 0.0, alpha: 1.0),
+                        count: 20, radius: 90, zPosition: 700
+                    )
+                    HapticEngine.levelUpBurst()
+                }
+
+                let newLevel = cityLevelFor(cp: totalCP)
+                if newLevel > prevLevel {
+                    updateCityLevel()
+                }
+                updateNPCCount()
+                checkMapExpansion()
+            }
+        }
+    }
+
     // MARK: - 飲酒ペナルティ建物（CLAUDE.md Key Rule 2）
 
     /// 飲酒数に応じて B029/B030 ペナルティ建物を表示 / 非表示にする
@@ -229,18 +341,34 @@ final class CitySceneCoordinator {
 
     private func weatherForCP(_ cp: Int) -> WeatherType {
         switch cp {
-        case 400...: return .sunny
-        case 300..<400: return .partlyCloudy
-        case 200..<300: return .cloudy
-        case 100..<200: return .rainy
-        default:        return .stormy
+        case 350...: return .sunny
+        case 250..<350: return .partlyCloudy
+        case 150..<250: return .cloudy
+        case 75..<150: return .rainy
+        default:       return .stormy
+        }
+    }
+
+    /// 天気に応じた建物 XP 倍率（晴れで頑張ると建物が速く育つ）
+    var weatherXPMultiplier: Double {
+        switch currentWeather {
+        case .sunny:        return 1.2
+        case .partlyCloudy: return 1.1
+        case .cloudy:       return 1.0
+        case .rainy:        return 0.9
+        case .stormy:       return 0.8
         }
     }
 
     // MARK: - NPC 更新（totalCP 累計から計算）
 
     private func updateNPCCount() {
-        npcCount = min(totalCP / 100 + 1, 20)
+        // 序盤は速く増え、中盤以降は緩やかに成長する2段階式
+        // 0-2000 CP: 1体/100CP → 最大21体（序盤の街が賑わう感覚）
+        // 2000+ CP:  1体/500CP → 最大50体（長期的な成長実感）
+        let earlyNPCs = min(totalCP / 100 + 1, 21)
+        let lateNPCs  = max(0, (totalCP - 2_000)) / 500
+        npcCount = min(earlyNPCs + lateNPCs, 50)
         scene?.updateNPCCount(npcCount)
         updateCityLevel()
     }
@@ -315,4 +443,12 @@ struct BuildingInfo: Identifiable, Sendable {
     let description: String
     let gridX:       Int
     let gridY:       Int
+}
+
+struct CityLevelReward: Equatable, Identifiable {
+    var id: Int { level }
+    let level:       Int
+    let bonusCP:     Int
+    let title:       String
+    let description: String
 }
