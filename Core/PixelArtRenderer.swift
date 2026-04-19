@@ -713,6 +713,34 @@ enum PixelArtRenderer {
     /// キャッシュを全消去（アプリ設定変更・テスト用）
     static func invalidateCache() { cache.removeAllObjects() }
 
+    #if DEBUG
+    /// 起動時に全アセットの読み込み状態をコンソールに出力
+    static func debugAssetLoadStatus() {
+        print("[PixelArt] === Asset Load Status ===")
+        let buildings = ["B001","B002","B003","B004","B005","B006","B007","B008","B009","B010",
+                         "B011","B012","B013","B014","B015","B016","B017","B018","B019","B020",
+                         "B021","B022","B023","B024","B025","B026","B027","B028","B029","B030"]
+        var found = 0, missing = 0
+        for id in buildings {
+            let name = "bld_\(id)_lv1"
+            if UIImage(named: name) != nil { found += 1 }
+            else { print("[PixelArt]   ❌ Missing: \(name)"); missing += 1 }
+        }
+        let tiles = ["tile_grass_0","tile_grass_1","tile_road","tile_sidewalk","tile_water","tile_sand","tile_cobblestone"]
+        for t in tiles {
+            if UIImage(named: t) != nil { found += 1 }
+            else { print("[PixelArt]   ❌ Missing: \(t)"); missing += 1 }
+        }
+        let npcs = (0...5).map { "npc_\($0)_f0" }
+        for n in npcs {
+            if UIImage(named: n) != nil { found += 1 }
+            else { print("[PixelArt]   ❌ Missing: \(n)"); missing += 1 }
+        }
+        print("[PixelArt] ✅ Found: \(found), ❌ Missing: \(missing)")
+        print("[PixelArt] ========================")
+    }
+    #endif
+
     // MARK: - Asset Catalog Override (PixelLab.ai 画像差し替えパイプライン)
     //
     // Resources/Assets.xcassets に対応する名前の画像が存在すればそれを優先する。
@@ -781,12 +809,16 @@ enum PixelArtRenderer {
 
     static func buildingTexture(id: String, level: Int) -> SKTexture {
         cached("bld_\(id)_lv\(level)") {
-            // 1) Lv 完全一致の画像があれば優先（BuildingNode のスプライトサイズと一致）
-            if let t = assetTexture("bld_\(id)_lv\(level)") { return t }
-            // 2) Lv 画像が無ければプロシージャル生成にフォールバック
-            //    ※ 低 Lv 画像へのカスケードは避ける：BuildingNode が cfg.floors から算出する
-            //      スプライトサイズと、低 Lv 画像のサイズが合わず、SpriteKit が縦に引き延ばして
-            //      表示してしまうため（例: Lv3 スプライト 64×92 に Lv1 画像 64×52 が貼られる）
+            let name = "bld_\(id)_lv\(level)"
+            if let t = assetTexture(name) {
+                #if DEBUG
+                print("[PixelArt] ✅ Asset loaded: \(name)")
+                #endif
+                return t
+            }
+            #if DEBUG
+            print("[PixelArt] ⚠️ Asset NOT found: \(name) → using procedural fallback")
+            #endif
             let cfg = BuildingVisualConfig.make(id: id, level: level)
             return isoBuilding(config: cfg, id: id, level: level)
         }
