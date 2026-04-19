@@ -5,9 +5,9 @@
 // 参考デザイン: カイロソフト風アイソメトリックシティ + RPGキャラクター
 //
 // アイソメトリック座標系:
-//   - タイル: 64×32 px (ダイアモンド形)
-//   - 建物: 64×(tileH + floors*20) px
-//   - NPC:  8col×14row の論理ピクセル × 3px = 24×42 px
+//   - タイル: 128×64 px (ダイアモンド形)
+//   - 建物: 128×(tileH + floors*40) px
+//   - NPC:  8col×14row の論理ピクセル × 6px = 48×84 px
 
 import SpriteKit
 import UIKit
@@ -691,9 +691,9 @@ private enum NPCPixels {
 
 enum PixelArtRenderer {
 
-    static let tileW: CGFloat = 64
-    static let tileH: CGFloat = 32
-    static let floorH: CGFloat = 20
+    static let tileW: CGFloat = 128
+    static let tileH: CGFloat = 64
+    static let floorH: CGFloat = 40
 
     // NSCache: スレッドセーフ + メモリ警告時に自動解放（Dictionary より安全）
     private static let cache: NSCache<NSString, SKTexture> = {
@@ -854,6 +854,10 @@ enum PixelArtRenderer {
     /// 建物のスプライトサイズを返す（アセット画像があればそのサイズ、なければ floors ベース）
     static func buildingSpriteSize(id: String, level: Int) -> CGSize {
         if let assetSize = buildingAssetSize(id: id, level: level) {
+            if assetSize.width < tileW {
+                let s = tileW / assetSize.width
+                return CGSize(width: assetSize.width * s, height: assetSize.height * s)
+            }
             return assetSize
         }
         let cfg = BuildingVisualConfig.make(id: id, level: level)
@@ -896,27 +900,27 @@ enum PixelArtRenderer {
     }
 
     private static func makeStreetLampTexture() -> SKTexture {
-        let w: CGFloat = 8, h: CGFloat = 22
+        let w: CGFloat = 16, h: CGFloat = 44
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
             // ポール
             cg.setFillColor(UIColor(hex: "5D4037").cgColor)
-            cg.fill(CGRect(x: 3, y: 7, width: 2, height: 15))
+            cg.fill(CGRect(x: 6, y: 14, width: 4, height: 30))
             // アーム（L字）
-            cg.fill(CGRect(x: 1, y: 7, width: 4, height: 2))
+            cg.fill(CGRect(x: 2, y: 14, width: 8, height: 4))
             // ランプヘッド
             cg.setFillColor(UIColor(hex: "FFF9C4").cgColor)
-            cg.fillEllipse(in: CGRect(x: 0, y: 2, width: 6, height: 6))
+            cg.fillEllipse(in: CGRect(x: 0, y: 4, width: 12, height: 12))
             // ランプグロー（外縁）
             cg.setStrokeColor(UIColor(hex: "F9A825").cgColor)
-            cg.setLineWidth(0.6)
-            cg.strokeEllipse(in: CGRect(x: 0, y: 2, width: 6, height: 6))
+            cg.setLineWidth(1.2)
+            cg.strokeEllipse(in: CGRect(x: 0, y: 4, width: 12, height: 12))
             // ランプ中心ハイライト
             cg.setFillColor(UIColor.white.withAlphaComponent(0.6).cgColor)
-            cg.fillEllipse(in: CGRect(x: 1.5, y: 3.5, width: 2, height: 2))
+            cg.fillEllipse(in: CGRect(x: 3, y: 7, width: 4, height: 4))
             // ポールベース
             cg.setFillColor(UIColor(hex: "4E342E").cgColor)
-            cg.fill(CGRect(x: 2, y: 20, width: 4, height: 2))
+            cg.fill(CGRect(x: 4, y: 40, width: 8, height: 4))
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
@@ -928,23 +932,23 @@ enum PixelArtRenderer {
     }
 
     private static func makeBenchTexture() -> SKTexture {
-        let w: CGFloat = 16, h: CGFloat = 12
+        let w: CGFloat = 32, h: CGFloat = 24
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
             // 座面
             cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
-            cg.fill(CGRect(x: 1, y: 4, width: 14, height: 3))
+            cg.fill(CGRect(x: 2, y: 8, width: 28, height: 6))
             // 背もたれ
             cg.setFillColor(UIColor(hex: "795548").cgColor)
-            cg.fill(CGRect(x: 1, y: 1, width: 14, height: 2))
+            cg.fill(CGRect(x: 2, y: 2, width: 28, height: 4))
             // 足（4本）
             cg.setFillColor(UIColor(hex: "5D4037").cgColor)
-            cg.fill(CGRect(x: 2,  y: 7, width: 2, height: 5))
-            cg.fill(CGRect(x: 12, y: 7, width: 2, height: 5))
+            cg.fill(CGRect(x: 4,  y: 14, width: 4, height: 10))
+            cg.fill(CGRect(x: 24, y: 14, width: 4, height: 10))
             // アウトライン
             cg.setStrokeColor(UIColor.black.withAlphaComponent(0.25).cgColor)
-            cg.setLineWidth(0.4)
-            cg.stroke(CGRect(x: 1, y: 1, width: 14, height: 6))
+            cg.setLineWidth(0.8)
+            cg.stroke(CGRect(x: 2, y: 2, width: 28, height: 12))
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
@@ -958,20 +962,20 @@ enum PixelArtRenderer {
     }
 
     private static func makeFlowerPotTexture() -> SKTexture {
-        let w: CGFloat = 10, h: CGFloat = 14
+        let w: CGFloat = 20, h: CGFloat = 28
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
             cg.setFillColor(UIColor(hex: "A1887F").cgColor)
-            cg.fill(CGRect(x: 2, y: 7, width: 6, height: 6))
+            cg.fill(CGRect(x: 4, y: 14, width: 12, height: 12))
             cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
-            cg.fill(CGRect(x: 1, y: 7, width: 8, height: 2))
+            cg.fill(CGRect(x: 2, y: 14, width: 16, height: 4))
             cg.setFillColor(UIColor(hex: "4CAF50").cgColor)
-            cg.fillEllipse(in: CGRect(x: 1, y: 2, width: 4, height: 5))
-            cg.fillEllipse(in: CGRect(x: 5, y: 1, width: 4, height: 5))
+            cg.fillEllipse(in: CGRect(x: 2, y: 4, width: 8, height: 10))
+            cg.fillEllipse(in: CGRect(x: 10, y: 2, width: 8, height: 10))
             cg.setFillColor(UIColor(hex: "FF5252").cgColor)
-            cg.fill(CGRect(x: 3, y: 2, width: 2, height: 2))
+            cg.fill(CGRect(x: 6, y: 4, width: 4, height: 4))
             cg.setFillColor(UIColor(hex: "FFEB3B").cgColor)
-            cg.fill(CGRect(x: 6, y: 1, width: 2, height: 2))
+            cg.fill(CGRect(x: 12, y: 2, width: 4, height: 4))
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
@@ -985,21 +989,21 @@ enum PixelArtRenderer {
     }
 
     private static func makeSignpostTexture() -> SKTexture {
-        let w: CGFloat = 12, h: CGFloat = 20
+        let w: CGFloat = 24, h: CGFloat = 40
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
             cg.setFillColor(UIColor(hex: "5D4037").cgColor)
-            cg.fill(CGRect(x: 5, y: 5, width: 2, height: 15))
+            cg.fill(CGRect(x: 10, y: 10, width: 4, height: 30))
             cg.setFillColor(UIColor(hex: "FFF9C4").cgColor)
-            cg.fill(CGRect(x: 0, y: 2, width: 10, height: 5))
+            cg.fill(CGRect(x: 0, y: 4, width: 20, height: 10))
             cg.setStrokeColor(UIColor(hex: "8D6E63").cgColor)
-            cg.setLineWidth(0.5)
-            cg.stroke(CGRect(x: 0, y: 2, width: 10, height: 5))
+            cg.setLineWidth(1.0)
+            cg.stroke(CGRect(x: 0, y: 4, width: 20, height: 10))
             cg.setFillColor(UIColor(hex: "5D4037").withAlphaComponent(0.4).cgColor)
-            cg.fill(CGRect(x: 1, y: 3, width: 8, height: 1))
-            cg.fill(CGRect(x: 1, y: 5, width: 6, height: 1))
+            cg.fill(CGRect(x: 2, y: 6, width: 16, height: 2))
+            cg.fill(CGRect(x: 2, y: 10, width: 12, height: 2))
             cg.setFillColor(UIColor(hex: "4E342E").cgColor)
-            cg.fill(CGRect(x: 4, y: 18, width: 4, height: 2))
+            cg.fill(CGRect(x: 8, y: 36, width: 8, height: 4))
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
@@ -1013,19 +1017,19 @@ enum PixelArtRenderer {
     }
 
     private static func makeWaterWellTexture() -> SKTexture {
-        let w: CGFloat = 16, h: CGFloat = 18
+        let w: CGFloat = 32, h: CGFloat = 36
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
             cg.setFillColor(UIColor(hex: "B0BEC5").cgColor)
-            cg.fillEllipse(in: CGRect(x: 1, y: 8, width: 14, height: 8))
+            cg.fillEllipse(in: CGRect(x: 2, y: 16, width: 28, height: 16))
             cg.setFillColor(UIColor(hex: "4FC3F7").withAlphaComponent(0.6).cgColor)
-            cg.fillEllipse(in: CGRect(x: 3, y: 10, width: 10, height: 4))
+            cg.fillEllipse(in: CGRect(x: 6, y: 20, width: 20, height: 8))
             cg.setFillColor(UIColor(hex: "5D4037").cgColor)
-            cg.fill(CGRect(x: 3, y: 2, width: 2, height: 8))
-            cg.fill(CGRect(x: 11, y: 2, width: 2, height: 8))
-            cg.fill(CGRect(x: 3, y: 1, width: 10, height: 2))
+            cg.fill(CGRect(x: 6, y: 4, width: 4, height: 16))
+            cg.fill(CGRect(x: 22, y: 4, width: 4, height: 16))
+            cg.fill(CGRect(x: 6, y: 2, width: 20, height: 4))
             cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
-            cg.fill(CGRect(x: 6, y: 0, width: 3, height: 4))
+            cg.fill(CGRect(x: 12, y: 0, width: 6, height: 8))
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
@@ -1053,44 +1057,44 @@ enum PixelArtRenderer {
             if grass {
                 cg.setFillColor(UIColor.black.withAlphaComponent(0.07).cgColor)
                 for _ in 0..<6 {
-                    let px = CGFloat.random(in: 10...54)
-                    let py = CGFloat.random(in: 6...26)
+                    let px = CGFloat.random(in: 20...108)
+                    let py = CGFloat.random(in: 12...52)
                     if abs(px-w/2)/(w/2) + abs(py-h/2)/(h/2) <= 0.85 {
-                        cg.fill(CGRect(x: px, y: py, width: 2, height: 2))
+                        cg.fill(CGRect(x: px, y: py, width: 4, height: 4))
                     }
                 }
             }
             // 道路センターライン（破線）
             if roadMarkings {
                 cg.setFillColor(UIColor(hex: "F5E6A3").withAlphaComponent(0.5).cgColor)
-                // アイソメ中心を斜めに走る破線（4px on / 4px off）
+                // アイソメ中心を斜めに走る破線（8px on / 8px off）
                 var step: CGFloat = 0
                 while step < w {
                     let x = step
                     let y = h/2 - (x - w/2) * (h/2) / (w/2)
-                    if Int(step / 4) % 2 == 0 {
-                        cg.fill(CGRect(x: x, y: y - 0.75, width: 3, height: 1.5))
+                    if Int(step / 8) % 2 == 0 {
+                        cg.fill(CGRect(x: x, y: y - 1.5, width: 6, height: 3))
                     }
-                    step += 2
+                    step += 8
                 }
             }
             // 石畳パターン（プレミアム用）
             if cobblestone {
                 cg.setStrokeColor(shadow.withAlphaComponent(0.3).cgColor)
-                cg.setLineWidth(0.5)
-                for row in stride(from: CGFloat(4), to: h - 2, by: 5) {
-                    let offset = Int(row / 5) % 2 == 0 ? CGFloat(0) : CGFloat(6)
-                    for col in stride(from: offset + 4, to: w - 4, by: 12) {
+                cg.setLineWidth(1.0)
+                for row in stride(from: CGFloat(8), to: h - 4, by: 10) {
+                    let offset = Int(row / 10) % 2 == 0 ? CGFloat(0) : CGFloat(12)
+                    for col in stride(from: offset + 8, to: w - 8, by: 24) {
                         let bx = col, by = row
                         if abs(bx - w/2)/(w/2) + abs(by - h/2)/(h/2) <= 0.8 {
-                            cg.stroke(CGRect(x: bx, y: by, width: 8, height: 4))
+                            cg.stroke(CGRect(x: bx, y: by, width: 16, height: 8))
                         }
                     }
                 }
             }
             // アウトライン
             UIColor.black.withAlphaComponent(0.18).setStroke()
-            diamond.lineWidth = 0.5; diamond.stroke()
+            diamond.lineWidth = 1.0; diamond.stroke()
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }
@@ -1165,13 +1169,13 @@ enum PixelArtRenderer {
                 config.topColor.setFill(); tp.fill()
                 UIColor.black.withAlphaComponent(0.08).setFill(); tp.fill()
                 UIColor.black.withAlphaComponent(0.25).setStroke()
-                tp.lineWidth = 0.6; tp.stroke()
+                tp.lineWidth = 1.2; tp.stroke()
                 // 屋根と壁の境界にディザリング（グラデーション効果）
                 drawRoofEdgeDither(cg: cg, roofBaseY: roofBaseY, w: w, config: config)
 
             case .pitched:
                 // 切妻屋根
-                let ridgeH: CGFloat = 10
+                let ridgeH: CGFloat = 20
                 let ls = UIBezierPath()
                 ls.move(to:    CGPoint(x: 0,   y: roofBaseY))
                 ls.addLine(to: CGPoint(x: w/2, y: roofBaseY + tileH/2))
@@ -1191,7 +1195,7 @@ enum PixelArtRenderer {
 
             case .dome:
                 // ドーム屋根
-                let domeH: CGFloat = 18
+                let domeH: CGFloat = 36
                 let domeRect = CGRect(x: w/2 - w/4, y: roofBaseY - domeH, width: w/2, height: domeH)
                 cg.saveGState()
                 cg.clip(to: CGRect(x: 0, y: 0, width: w, height: roofBaseY))
@@ -1200,14 +1204,14 @@ enum PixelArtRenderer {
                 cg.fillEllipse(in: CGRect(x: w/2 - w/8, y: roofBaseY - domeH,
                                           width: w/8, height: domeH * 0.55))
                 cg.setStrokeColor(UIColor.black.withAlphaComponent(0.3).cgColor)
-                cg.setLineWidth(0.7); cg.strokeEllipse(in: domeRect)
+                cg.setLineWidth(1.4); cg.strokeEllipse(in: domeRect)
                 cg.restoreGState()
             }
 
             // ── アウトライン ───────────────────────────────────────
             UIColor.black.withAlphaComponent(0.3).setStroke()
-            lp.lineWidth = 0.8; lp.stroke()
-            rp.lineWidth = 0.8; rp.stroke()
+            lp.lineWidth = 1.6; lp.stroke()
+            rp.lineWidth = 1.6; rp.stroke()
 
             // ── 屋根デコレーション（アウトラインの上に描画）──────────
             drawRoofDecoration(cg: cg, id: id, config: config,
@@ -1223,28 +1227,28 @@ enum PixelArtRenderer {
         cg: CGContext, isLeft: Bool, bH: CGFloat, baseY: CGFloat,
         w: CGFloat, config: BuildingVisualConfig
     ) {
-        let wW: CGFloat = 5, wH: CGFloat = 6
+        let wW: CGFloat = 10, wH: CGFloat = 12
         let fH = floorH
         let cols = 2
         // 1階建てでも窓を表示（ただし上層階のみスキップ）
         let floorsToDraw = max(config.floors, 1)
         for floor in 0..<floorsToDraw {
-            let fy = baseY - bH + CGFloat(floor) * fH + 4
+            let fy = baseY - bH + CGFloat(floor) * fH + 8
             for col in 0..<cols {
                 let wx: CGFloat
                 if isLeft {
-                    wx = CGFloat(col) * 10 + 4 + CGFloat(floor) * (-1)
+                    wx = CGFloat(col) * 20 + 8 + CGFloat(floor) * (-2)
                 } else {
-                    wx = w/2 + CGFloat(col) * 10 + 7 + CGFloat(floor) * 1
+                    wx = w/2 + CGFloat(col) * 20 + 14 + CGFloat(floor) * 2
                 }
                 let r = CGRect(x: wx, y: fy, width: wW, height: wH)
                 cg.setFillColor(config.windowColor.cgColor); cg.fill(r)
-                // 窓枠（1px フレーム）
+                // 窓枠（2px フレーム）
                 cg.setStrokeColor(UIColor.black.withAlphaComponent(0.3).cgColor)
-                cg.setLineWidth(0.5); cg.stroke(r)
+                cg.setLineWidth(1.0); cg.stroke(r)
                 // 窓ガラスのハイライト（左上コーナー）
                 cg.setFillColor(UIColor.white.withAlphaComponent(0.3).cgColor)
-                cg.fill(CGRect(x: wx, y: fy, width: 2, height: 2))
+                cg.fill(CGRect(x: wx, y: fy, width: 4, height: 4))
             }
         }
     }
@@ -1255,41 +1259,41 @@ enum PixelArtRenderer {
     private static func drawDoor(
         cg: CGContext, baseY: CGFloat, w: CGFloat, config: BuildingVisualConfig
     ) {
-        let dW: CGFloat = 5, dH: CGFloat = 9
+        let dW: CGFloat = 10, dH: CGFloat = 18
         // 左面のグラウンドフロア中央付近（X: ~w/8）
-        let dx: CGFloat = w/8 - 1
-        let dy = baseY - dH - 1
+        let dx: CGFloat = w/8 - 2
+        let dy = baseY - dH - 2
         // ドア枠（左色を暗くした色）
         cg.setFillColor(config.leftColor.darkened(by: 0.65).cgColor)
-        cg.fill(CGRect(x: dx - 1, y: dy - 1, width: dW + 2, height: dH + 2))
+        cg.fill(CGRect(x: dx - 2, y: dy - 2, width: dW + 4, height: dH + 4))
         // ドアパネル（アクセント色）
         cg.setFillColor(config.accentColor.withAlphaComponent(0.7).cgColor)
         cg.fill(CGRect(x: dx, y: dy, width: dW, height: dH))
         // ドアノブ（小さな点）
         cg.setFillColor(UIColor(hex: "FFD700").withAlphaComponent(0.8).cgColor)
-        cg.fill(CGRect(x: dx + dW - 2, y: dy + dH/2, width: 1.5, height: 1.5))
+        cg.fill(CGRect(x: dx + dW - 4, y: dy + dH/2, width: 3, height: 3))
         // ステップ（ドア下）
         cg.setFillColor(config.leftColor.darkened(by: 0.55).cgColor)
-        cg.fill(CGRect(x: dx - 1, y: baseY - 2, width: dW + 2, height: 2))
+        cg.fill(CGRect(x: dx - 2, y: baseY - 4, width: dW + 4, height: 4))
     }
 
     /// 看板（左面グラウンドフロア上部）
     private static func drawBuildingSign(
         cg: CGContext, baseY: CGFloat, w: CGFloat, config: BuildingVisualConfig
     ) {
-        let sw: CGFloat = 12, sh: CGFloat = 5
-        let sx: CGFloat = 2
-        let sy = baseY - floorH + 3   // グラウンドフロア上部
+        let sw: CGFloat = 24, sh: CGFloat = 10
+        let sx: CGFloat = 4
+        let sy = baseY - floorH + 6   // グラウンドフロア上部
         // 看板背景（アクセント色）
         cg.setFillColor(config.accentColor.cgColor)
         cg.fill(CGRect(x: sx, y: sy, width: sw, height: sh))
         // 看板テキスト（2本のライン）
         cg.setFillColor(UIColor.white.withAlphaComponent(0.55).cgColor)
-        cg.fill(CGRect(x: sx + 1, y: sy + 1, width: sw - 3, height: 1))
-        cg.fill(CGRect(x: sx + 1, y: sy + 3, width: sw - 5, height: 1))
+        cg.fill(CGRect(x: sx + 2, y: sy + 2, width: sw - 6, height: 2))
+        cg.fill(CGRect(x: sx + 2, y: sy + 6, width: sw - 10, height: 2))
         // 看板枠
         cg.setStrokeColor(UIColor.black.withAlphaComponent(0.28).cgColor)
-        cg.setLineWidth(0.4)
+        cg.setLineWidth(1.6)
         cg.stroke(CGRect(x: sx, y: sy, width: sw, height: sh))
     }
 
@@ -1299,7 +1303,7 @@ enum PixelArtRenderer {
     ) {
         guard floors >= 2 else { return }
         cg.setStrokeColor(UIColor.black.withAlphaComponent(0.15).cgColor)
-        cg.setLineWidth(0.7)
+        cg.setLineWidth(1.4)
         for floor in 1..<floors {
             let y = baseY - CGFloat(floor) * floorH
             // 左面のフロアライン: 右端 (w/2, y) → 左端 (0, y - tileH/2)
@@ -1322,10 +1326,10 @@ enum PixelArtRenderer {
         var x: CGFloat = 0
         while x < w/2 {
             let y = roofBaseY + (w/2 - x) * (tileH/2) / (w/2)
-            if Int(x) % 2 == 0 {
-                cg.fill(CGRect(x: x, y: y - 1, width: 1, height: 1))
+            if Int(x/2) % 2 == 0 {
+                cg.fill(CGRect(x: x, y: y - 2, width: 2, height: 2))
             }
-            x += 1
+            x += 2
         }
     }
 
@@ -1338,64 +1342,64 @@ enum PixelArtRenderer {
 
         switch id {
         case "B025":  // 市庁舎 — 旗ポール + 三色旗（4フレームで揺れる）
-            let px = w/2 + 3
-            let py = ridgeY - 13
+            let px = w/2 + 6
+            let py = ridgeY - 26
             // ポール
             cg.setFillColor(UIColor(hex: "8B7536").cgColor)
-            cg.fill(CGRect(x: px, y: py, width: 2, height: 13))
+            cg.fill(CGRect(x: px, y: py, width: 4, height: 26))
             // 旗（flagFrame で x オフセットを変化させて揺らす）
-            let wave = CGFloat(flagFrame % 2) * 1.0
+            let wave = CGFloat(flagFrame % 2) * 2.0
             cg.setFillColor(UIColor(hex: "E63946").cgColor)
-            cg.fill(CGRect(x: px+2, y: py,         width: 7-wave, height: 3))
+            cg.fill(CGRect(x: px+4, y: py,         width: 14-wave, height: 6))
             cg.setFillColor(UIColor(hex: "FFFFFF").cgColor)
-            cg.fill(CGRect(x: px+2, y: py+3,       width: 7,      height: 2))
+            cg.fill(CGRect(x: px+4, y: py+6,       width: 14,      height: 4))
             cg.setFillColor(UIColor(hex: "4A90D9").cgColor)
-            cg.fill(CGRect(x: px+2, y: py+5,       width: 7+wave, height: 3))
+            cg.fill(CGRect(x: px+4, y: py+10,      width: 14+wave, height: 6))
 
         case "B026":  // カレンダータワー — 時計
-            let cx = w/2 - 5, cy = ridgeY - 10
+            let cx = w/2 - 10, cy = ridgeY - 20
             cg.setFillColor(UIColor(hex: "FFFDE7").cgColor)
-            cg.fillEllipse(in: CGRect(x: cx, y: cy, width: 9, height: 9))
+            cg.fillEllipse(in: CGRect(x: cx, y: cy, width: 18, height: 18))
             cg.setStrokeColor(UIColor.black.withAlphaComponent(0.5).cgColor)
-            cg.setLineWidth(0.5)
-            cg.strokeEllipse(in: CGRect(x: cx, y: cy, width: 9, height: 9))
+            cg.setLineWidth(1.0)
+            cg.strokeEllipse(in: CGRect(x: cx, y: cy, width: 18, height: 18))
             // 時計の針（12時 + 3時）
             cg.setStrokeColor(UIColor.black.withAlphaComponent(0.65).cgColor)
-            cg.setLineWidth(0.7)
-            cg.move(to: CGPoint(x: cx+4.5, y: cy+4.5))
-            cg.addLine(to: CGPoint(x: cx+4.5, y: cy+1)); cg.strokePath()
-            cg.move(to: CGPoint(x: cx+4.5, y: cy+4.5))
-            cg.addLine(to: CGPoint(x: cx+8,   y: cy+4.5)); cg.strokePath()
+            cg.setLineWidth(1.4)
+            cg.move(to: CGPoint(x: cx+9, y: cy+9))
+            cg.addLine(to: CGPoint(x: cx+9, y: cy+2)); cg.strokePath()
+            cg.move(to: CGPoint(x: cx+9, y: cy+9))
+            cg.addLine(to: CGPoint(x: cx+16, y: cy+9)); cg.strokePath()
 
         case "B001", "B004", "B017":  // ジム / プール / 睡眠クリニック — アンテナ
             cg.setFillColor(UIColor(hex: "9E9E9E").cgColor)
-            cg.fill(CGRect(x: w/2 + 2, y: ridgeY - 10, width: 2, height: 10))
+            cg.fill(CGRect(x: w/2 + 4, y: ridgeY - 20, width: 4, height: 20))
             cg.setFillColor(UIColor(hex: "F44336").cgColor)
-            cg.fillEllipse(in: CGRect(x: w/2 + 1.5, y: ridgeY - 12, width: 3, height: 3))
+            cg.fillEllipse(in: CGRect(x: w/2 + 3, y: ridgeY - 24, width: 6, height: 6))
 
         case "B002":  // スタジアム — フラッグ群
             for i in 0..<3 {
-                let fx = w/4 + CGFloat(i) * 8
+                let fx = w/4 + CGFloat(i) * 16
                 cg.setFillColor(UIColor(hex: "FF5722").cgColor)
-                cg.fill(CGRect(x: fx, y: ridgeY - 8, width: 2, height: 8))
+                cg.fill(CGRect(x: fx, y: ridgeY - 16, width: 4, height: 16))
                 let flagColors = ["FF5722", "4CAF50", "2196F3"]
                 cg.setFillColor(UIColor(hex: flagColors[i]).cgColor)
-                cg.fill(CGRect(x: fx+2, y: ridgeY - 8, width: 4, height: 3))
+                cg.fill(CGRect(x: fx+4, y: ridgeY - 16, width: 8, height: 6))
             }
 
         case "B018":  // 天文台 — 望遠鏡スリット
             cg.setFillColor(UIColor.black.withAlphaComponent(0.4).cgColor)
-            cg.fill(CGRect(x: w/2 - 2, y: ridgeY - 16, width: 4, height: 10))
+            cg.fill(CGRect(x: w/2 - 4, y: ridgeY - 32, width: 8, height: 20))
 
         case "B007", "B019", "B028":  // カフェ / 図書館 / 公民館 — 煙突
             let chx = w/4
             cg.setFillColor(config.rightColor.cgColor)
-            cg.fill(CGRect(x: chx, y: ridgeY - 8, width: 5, height: 8))
+            cg.fill(CGRect(x: chx, y: ridgeY - 16, width: 10, height: 16))
             cg.setFillColor(UIColor(hex: "546E7A").cgColor)
-            cg.fill(CGRect(x: chx - 1, y: ridgeY - 8, width: 7, height: 2))
+            cg.fill(CGRect(x: chx - 2, y: ridgeY - 16, width: 14, height: 4))
             // 煙
             cg.setFillColor(UIColor.white.withAlphaComponent(0.25).cgColor)
-            cg.fillEllipse(in: CGRect(x: chx, y: ridgeY - 13, width: 4, height: 4))
+            cg.fillEllipse(in: CGRect(x: chx, y: ridgeY - 26, width: 8, height: 8))
 
         default: break
         }
@@ -1406,10 +1410,10 @@ enum PixelArtRenderer {
             var gx: CGFloat = 0
             while gx < w {
                 let gy = roofBaseY + (w/2 - gx) * (tileH/2) / (w/2)
-                if Int(gx / 3) % 2 == 0 {
-                    cg.fill(CGRect(x: gx, y: gy - 1, width: 2, height: 1))
+                if Int(gx / 6) % 2 == 0 {
+                    cg.fill(CGRect(x: gx, y: gy - 2, width: 4, height: 2))
                 }
-                gx += 3
+                gx += 6
             }
         }
     }
@@ -1423,41 +1427,41 @@ enum PixelArtRenderer {
         case "B001", "B002", "B003", "B004", "B005", "B006":
             // 右側に小さな芝生
             cg.setFillColor(UIColor(hex: "4CAF50").withAlphaComponent(0.5).cgColor)
-            cg.fill(CGRect(x: w - 12, y: baseY - 3, width: 8, height: 2))
+            cg.fill(CGRect(x: w - 24, y: baseY - 6, width: 16, height: 4))
             if level >= 3 {
                 // ミニ旗
                 cg.setFillColor(UIColor(hex: "34C759").cgColor)
-                cg.fill(CGRect(x: w - 6, y: baseY - 10, width: 1, height: 7))
-                cg.fill(CGRect(x: w - 5, y: baseY - 10, width: 4, height: 3))
+                cg.fill(CGRect(x: w - 12, y: baseY - 20, width: 2, height: 14))
+                cg.fill(CGRect(x: w - 10, y: baseY - 20, width: 8, height: 6))
             }
 
         // ── 食事軸: プランター + テラス席 ──
         case "B007", "B008", "B009", "B010", "B011", "B012":
             // プランター（右面足元）
             cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
-            cg.fill(CGRect(x: w - 10, y: baseY - 5, width: 6, height: 3))
+            cg.fill(CGRect(x: w - 20, y: baseY - 10, width: 12, height: 6))
             cg.setFillColor(UIColor(hex: "4CAF50").cgColor)
-            cg.fillEllipse(in: CGRect(x: w - 9, y: baseY - 8, width: 4, height: 4))
+            cg.fillEllipse(in: CGRect(x: w - 18, y: baseY - 16, width: 8, height: 8))
             if level >= 3 {
                 // テラス席（小さなパラソル）
                 cg.setFillColor(UIColor(hex: "FF9500").withAlphaComponent(0.6).cgColor)
-                cg.fill(CGRect(x: w - 16, y: baseY - 10, width: 6, height: 1))
+                cg.fill(CGRect(x: w - 32, y: baseY - 20, width: 12, height: 2))
                 cg.setFillColor(UIColor(hex: "6D4C41").cgColor)
-                cg.fill(CGRect(x: w - 14, y: baseY - 9, width: 1, height: 7))
+                cg.fill(CGRect(x: w - 28, y: baseY - 18, width: 2, height: 14))
             }
 
         // ── 飲酒軸: 石灯籠 + 砂利 ──
         case "B013", "B014", "B015", "B016":
             // 砂利テクスチャ（足元）
             cg.setFillColor(UIColor(hex: "D7CCC8").withAlphaComponent(0.4).cgColor)
-            cg.fill(CGRect(x: w/2 + 2, y: baseY - 2, width: 10, height: 2))
+            cg.fill(CGRect(x: w/2 + 4, y: baseY - 4, width: 20, height: 4))
             if level >= 2 {
                 // 石灯籠
                 cg.setFillColor(UIColor(hex: "9E9E9E").cgColor)
-                cg.fill(CGRect(x: w - 8, y: baseY - 10, width: 3, height: 8))
-                cg.fill(CGRect(x: w - 9, y: baseY - 11, width: 5, height: 2))
+                cg.fill(CGRect(x: w - 16, y: baseY - 20, width: 6, height: 16))
+                cg.fill(CGRect(x: w - 18, y: baseY - 22, width: 10, height: 4))
                 cg.setFillColor(UIColor(hex: "FFE082").withAlphaComponent(0.6).cgColor)
-                cg.fill(CGRect(x: w - 7, y: baseY - 8, width: 1, height: 1))
+                cg.fill(CGRect(x: w - 14, y: baseY - 16, width: 2, height: 2))
             }
 
         // ── 睡眠軸: 星型装飾 + 月のオブジェ ──
@@ -1465,34 +1469,34 @@ enum PixelArtRenderer {
             if level >= 2 {
                 // 小さな星
                 cg.setFillColor(UIColor(hex: "FFF176").withAlphaComponent(0.7).cgColor)
-                cg.fill(CGRect(x: w - 8, y: baseY - 7, width: 2, height: 2))
-                cg.fill(CGRect(x: w - 7, y: baseY - 8, width: 0, height: 0))
+                cg.fill(CGRect(x: w - 16, y: baseY - 14, width: 4, height: 4))
+                cg.fill(CGRect(x: w - 14, y: baseY - 16, width: 0, height: 0))
             }
             if level >= 4 {
                 // 月のオブジェ
                 cg.setFillColor(UIColor(hex: "FFF9C4").cgColor)
-                cg.fillEllipse(in: CGRect(x: w - 14, y: baseY - 11, width: 5, height: 5))
+                cg.fillEllipse(in: CGRect(x: w - 28, y: baseY - 22, width: 10, height: 10))
                 cg.setFillColor(UIColor(hex: "007AFF").withAlphaComponent(0.3).cgColor)
-                cg.fillEllipse(in: CGRect(x: w - 12, y: baseY - 11, width: 4, height: 4))
+                cg.fillEllipse(in: CGRect(x: w - 24, y: baseY - 22, width: 8, height: 8))
             }
 
         // ── 生活習慣軸: 花壇 + ベンチ ──
         case "B019", "B023", "B024", "B026", "B027", "B028":
             // 花壇
             cg.setFillColor(UIColor(hex: "795548").cgColor)
-            cg.fill(CGRect(x: w - 12, y: baseY - 4, width: 8, height: 3))
+            cg.fill(CGRect(x: w - 24, y: baseY - 8, width: 16, height: 6))
             let flowerColors = ["FF2D55", "FF9500", "FFEB3B"]
             for (i, hex) in flowerColors.enumerated() {
                 cg.setFillColor(UIColor(hex: hex).cgColor)
-                cg.fill(CGRect(x: w - 11 + CGFloat(i) * 3, y: baseY - 6, width: 2, height: 2))
+                cg.fill(CGRect(x: w - 22 + CGFloat(i) * 6, y: baseY - 12, width: 4, height: 4))
             }
             if level >= 3 {
                 // ベンチ
                 cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
-                cg.fill(CGRect(x: 2, y: baseY - 4, width: 8, height: 2))
+                cg.fill(CGRect(x: 4, y: baseY - 8, width: 16, height: 4))
                 cg.setFillColor(UIColor(hex: "5D4037").cgColor)
-                cg.fill(CGRect(x: 3, y: baseY - 2, width: 2, height: 2))
-                cg.fill(CGRect(x: 7, y: baseY - 2, width: 2, height: 2))
+                cg.fill(CGRect(x: 6, y: baseY - 4, width: 4, height: 4))
+                cg.fill(CGRect(x: 14, y: baseY - 4, width: 4, height: 4))
             }
 
         // ── 市庁舎: 噴水 + 階段 ──
@@ -1500,27 +1504,27 @@ enum PixelArtRenderer {
             if level >= 2 {
                 // 階段（3段）
                 cg.setFillColor(UIColor(hex: "D9C87A").withAlphaComponent(0.5).cgColor)
-                cg.fill(CGRect(x: w/8 - 3, y: baseY - 2, width: 9, height: 2))
-                cg.fill(CGRect(x: w/8 - 2, y: baseY - 4, width: 7, height: 2))
+                cg.fill(CGRect(x: w/8 - 6, y: baseY - 4, width: 18, height: 4))
+                cg.fill(CGRect(x: w/8 - 4, y: baseY - 8, width: 14, height: 4))
             }
             if level >= 4 {
                 // 噴水のベース
                 cg.setFillColor(UIColor(hex: "B0BEC5").cgColor)
-                cg.fillEllipse(in: CGRect(x: w - 14, y: baseY - 6, width: 8, height: 4))
+                cg.fillEllipse(in: CGRect(x: w - 28, y: baseY - 12, width: 16, height: 8))
                 cg.setFillColor(UIColor(hex: "90CAF9").withAlphaComponent(0.5).cgColor)
-                cg.fillEllipse(in: CGRect(x: w - 12, y: baseY - 5, width: 4, height: 2))
+                cg.fillEllipse(in: CGRect(x: w - 24, y: baseY - 10, width: 8, height: 4))
             }
 
         // ── ペナルティ: 散乱ゴミ ──
         case "B029":
             cg.setFillColor(UIColor(hex: "795548").withAlphaComponent(0.4).cgColor)
-            cg.fill(CGRect(x: w - 8, y: baseY - 3, width: 3, height: 2))
-            cg.fill(CGRect(x: w - 14, y: baseY - 2, width: 2, height: 1))
+            cg.fill(CGRect(x: w - 16, y: baseY - 6, width: 6, height: 4))
+            cg.fill(CGRect(x: w - 28, y: baseY - 4, width: 4, height: 2))
         case "B030":
             // ツタ（左面）
             cg.setFillColor(UIColor(hex: "4CAF50").withAlphaComponent(0.35).cgColor)
-            cg.fill(CGRect(x: 2, y: baseY - 18, width: 3, height: 14))
-            cg.fill(CGRect(x: 4, y: baseY - 12, width: 2, height: 4))
+            cg.fill(CGRect(x: 4, y: baseY - 36, width: 6, height: 28))
+            cg.fill(CGRect(x: 8, y: baseY - 24, width: 4, height: 8))
 
         default: break
         }
@@ -1531,7 +1535,7 @@ enum PixelArtRenderer {
     // ────────────────────────────────────────────────────────────────
 
     private static func npcSprite(type: NPCType, frame: Int) -> SKTexture {
-        let ps: CGFloat = 3
+        let ps: CGFloat = 6
         let cols = 8, rows = 14
         let palette = NPCColors.palette(for: type)
         let pixels = NPCPixels.pixels(for: type, frame: frame)
@@ -1557,25 +1561,25 @@ enum PixelArtRenderer {
     // ────────────────────────────────────────────────────────────────
 
     private static func treeSprite(variant: Int) -> SKTexture {
-        let w: CGFloat = 22, h: CGFloat = 34
+        let w: CGFloat = 44, h: CGFloat = 68
         let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
             let cg = ctx.cgContext
             // 幹
             cg.setFillColor(UIColor(hex:"6B4E2A").cgColor)
-            cg.fill(CGRect(x: w/2-2, y: h*0.62, width: 4, height: h*0.38))
+            cg.fill(CGRect(x: w/2-4, y: h*0.62, width: 8, height: h*0.38))
             // 葉（3層）
             let lc: [UIColor] = variant == 0
                 ? [UIColor(hex:"2D8B1E"), UIColor(hex:"3AAA28"), UIColor(hex:"50CC3E")]
                 : [UIColor(hex:"C06A20"), UIColor(hex:"D88030"), UIColor(hex:"ECA040")]
             cg.setFillColor(lc[0].cgColor)
-            cg.fillEllipse(in: CGRect(x: 2, y: h*0.36, width: w-4, height: h*0.34))
+            cg.fillEllipse(in: CGRect(x: 4, y: h*0.36, width: w-8, height: h*0.34))
             cg.setFillColor(lc[1].cgColor)
-            cg.fillEllipse(in: CGRect(x: 4, y: h*0.18, width: w-8, height: h*0.28))
+            cg.fillEllipse(in: CGRect(x: 8, y: h*0.18, width: w-16, height: h*0.28))
             cg.setFillColor(lc[2].cgColor)
-            cg.fillEllipse(in: CGRect(x: 6, y: 2, width: w-12, height: h*0.2))
+            cg.fillEllipse(in: CGRect(x: 12, y: 4, width: w-24, height: h*0.2))
             // ハイライト
             cg.setFillColor(UIColor.white.withAlphaComponent(0.2).cgColor)
-            cg.fillEllipse(in: CGRect(x: 6, y: h*0.22, width: 5, height: 5))
+            cg.fillEllipse(in: CGRect(x: 12, y: h*0.22, width: 10, height: 10))
         }
         let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
     }

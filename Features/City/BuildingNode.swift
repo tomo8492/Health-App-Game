@@ -99,21 +99,21 @@ final class BuildingNode: SKSpriteNode {
             SpriteEffects.spawnRingPulse(
                 at: position, in: scene,
                 color: UIColor(red: 1, green: 0.84, blue: 0, alpha: 1),
-                startSize: 28, endSize: 110, ringCount: 2,
+                startSize: 56, endSize: 220, ringCount: 2,
                 zPosition: zPosition + 0.4, duration: 0.7
             )
             SpriteEffects.spawnSparkleBurst(
                 at: CGPoint(x: position.x, y: position.y + size.height * 0.4),
                 in: scene,
                 color: UIColor(red: 1, green: 0.84, blue: 0, alpha: 1),
-                count: 14, radius: 60,
+                count: 14, radius: 120,
                 zPosition: zPosition + 0.5
             )
             SpriteEffects.spawnSparkleBurst(
                 at: CGPoint(x: position.x, y: position.y + size.height * 0.4),
                 in: scene,
                 color: axis.skColor,
-                count: 8, radius: 36,
+                count: 8, radius: 72,
                 zPosition: zPosition + 0.5
             )
         }
@@ -124,7 +124,7 @@ final class BuildingNode: SKSpriteNode {
         lvLabel.fontName  = "AvenirNext-Heavy"
         lvLabel.fontSize  = 16
         lvLabel.fontColor = UIColor(red: 1, green: 0.84, blue: 0, alpha: 1)
-        lvLabel.position  = CGPoint(x: 0, y: size.height * 0.5 + 8)
+        lvLabel.position  = CGPoint(x: 0, y: size.height * 0.5 + 16)
         lvLabel.zPosition = 500
         lvLabel.alpha = 0
         lvLabel.setScale(0.5)
@@ -142,7 +142,7 @@ final class BuildingNode: SKSpriteNode {
                 SKAction.scale(to: 1.0, duration: 0.18)
             ]),
             SKAction.group([
-                SKAction.moveBy(x: 0, y: 28, duration: 0.95),
+                SKAction.moveBy(x: 0, y: 56, duration: 0.95),
                 SKAction.sequence([SKAction.wait(forDuration: 0.55),
                                    SKAction.fadeOut(withDuration: 0.4)])
             ]),
@@ -183,7 +183,7 @@ final class BuildingNode: SKSpriteNode {
             SpriteEffects.spawnRingPulse(
                 at: position, in: scene,
                 color: axis.skColor,
-                startSize: 24, endSize: 90, ringCount: 1,
+                startSize: 48, endSize: 180, ringCount: 1,
                 zPosition: zPosition + 0.3, duration: 0.45
             )
         }

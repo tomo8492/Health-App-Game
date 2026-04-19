@@ -71,7 +71,7 @@ final class CityScene: SKScene {
 
     private func setupCamera() {
         camera = cameraNode
-        cameraNode.setScale(0.25)   // 俯瞰: 4倍ズームインでテクスチャを大きく表示
+        cameraNode.setScale(0.5)   // 座標系2倍 + カメラ0.5 = 以前の表示スケール維持
         addChild(cameraNode)
         // マップ中心を起動時の初期表示位置に設定（setupMap() の後に呼ぶこと）
         if let map = parsedMap {
@@ -182,8 +182,8 @@ final class CityScene: SKScene {
                 // 街路灯: 道路タイル (gid==2) で 4 マスごと、最大 24 本
                 if tile.gid == 2 && (col + row) % 4 == 0 && lampCount < 24 {
                     let lamp = SKSpriteNode(texture: lampTex,
-                                           size: CGSize(width: 16, height: 44))
-                    lamp.position    = CGPoint(x: pos.x + 4, y: pos.y + 4)
+                                           size: CGSize(width: 32, height: 88))
+                    lamp.position    = CGPoint(x: pos.x + 8, y: pos.y + 8)
                     lamp.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     lamp.zPosition   = z + 0.03
                     buildingLayer.addChild(lamp)
@@ -193,8 +193,8 @@ final class CityScene: SKScene {
                 // ベンチ: 歩道タイル (gid==3) で 6 マスごと
                 if tile.gid == 3 && (col + row) % 6 == 0 {
                     let bench = SKSpriteNode(texture: benchTex,
-                                            size: CGSize(width: 32, height: 24))
-                    bench.position    = CGPoint(x: pos.x, y: pos.y + 2)
+                                            size: CGSize(width: 64, height: 48))
+                    bench.position    = CGPoint(x: pos.x, y: pos.y + 4)
                     bench.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     bench.zPosition   = z + 0.01
                     buildingLayer.addChild(bench)
@@ -203,8 +203,8 @@ final class CityScene: SKScene {
                 // 花鉢: 歩道タイル (gid==3) で 8 マスごと（ベンチと被らない）
                 if tile.gid == 3 && (col + row) % 8 == 3 {
                     let pot = SKSpriteNode(texture: flowerTex,
-                                          size: CGSize(width: 20, height: 28))
-                    pot.position    = CGPoint(x: pos.x - 3, y: pos.y + 2)
+                                          size: CGSize(width: 40, height: 56))
+                    pot.position    = CGPoint(x: pos.x - 6, y: pos.y + 4)
                     pot.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     pot.zPosition   = z + 0.02
                     buildingLayer.addChild(pot)
@@ -213,8 +213,8 @@ final class CityScene: SKScene {
                 // 案内標識: 歩道タイル (gid==3) で 12 マスごと
                 if tile.gid == 3 && (col + row) % 12 == 7 {
                     let sign = SKSpriteNode(texture: signpostTex,
-                                           size: CGSize(width: 24, height: 40))
-                    sign.position    = CGPoint(x: pos.x + 5, y: pos.y + 3)
+                                           size: CGSize(width: 48, height: 80))
+                    sign.position    = CGPoint(x: pos.x + 10, y: pos.y + 6)
                     sign.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     sign.zPosition   = z + 0.02
                     buildingLayer.addChild(sign)
@@ -234,7 +234,7 @@ final class CityScene: SKScene {
             guard x >= 0 && x < map.width && y >= 0 && y < map.height else { continue }
             let variant = (x + y) % 2
             let tex = PixelArtRenderer.treeTexture(variant: variant)
-            let node = SKSpriteNode(texture: tex, size: CGSize(width: 44, height: 68))
+            let node = SKSpriteNode(texture: tex, size: CGSize(width: 88, height: 136))
             node.position = TiledMapParser.isoToScreen(
                 x: x, y: y,
                 tileWidth: CGFloat(map.tileWidth),
@@ -305,7 +305,7 @@ final class CityScene: SKScene {
         SpriteEffects.spawnRingPulse(
             at: pos, in: effectLayer,
             color: placed.axis.skColor,
-            startSize: 28, endSize: 130, ringCount: 2,
+            startSize: 56, endSize: 260, ringCount: 2,
             zPosition: 600, duration: 0.8
         )
 
@@ -323,12 +323,12 @@ final class CityScene: SKScene {
                 SpriteEffects.spawnSparkleBurst(
                     at: pos, in: self.effectLayer,
                     color: UIColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0),
-                    count: 16, radius: 70, zPosition: 620
+                    count: 16, radius: 140, zPosition: 620
                 )
                 SpriteEffects.spawnSparkleBurst(
                     at: pos, in: self.effectLayer,
                     color: placed.axis.skColor,
-                    count: 10, radius: 48, zPosition: 620
+                    count: 10, radius: 96, zPosition: 620
                 )
                 // 夜の窓ライトを追加する前に、親レイヤーの alpha を現在時刻に同期
                 // これをしないと深夜に建設した建物のライトが一瞬見えず、updateTimeOfDay が
@@ -346,14 +346,14 @@ final class CityScene: SKScene {
         for i in 0..<6 {
             let angle = CGFloat(i) / 6 * .pi * 2
             let dust = SKSpriteNode(texture: tex)
-            dust.size = CGSize(width: 12, height: 12)
+            dust.size = CGSize(width: 24, height: 24)
             dust.position = position
             dust.zPosition = 580
             dust.alpha = 0.9
             effectLayer.addChild(dust)
             dust.run(SKAction.sequence([
                 SKAction.group([
-                    SKAction.move(by: CGVector(dx: cos(angle) * 26, dy: sin(angle) * 13),
+                    SKAction.move(by: CGVector(dx: cos(angle) * 52, dy: sin(angle) * 26),
                                   duration: 0.6),
                     SKAction.scale(to: 2.0, duration: 0.6),
                     SKAction.fadeOut(withDuration: 0.6)
@@ -506,7 +506,7 @@ final class CityScene: SKScene {
         SpriteEffects.spawnRingPulse(
             at: center, in: effectLayer,
             color: axis.skColor,
-            startSize: 30, endSize: 140, ringCount: 2,
+            startSize: 60, endSize: 280, ringCount: 2,
             zPosition: 660, duration: 0.7
         )
 
@@ -515,13 +515,13 @@ final class CityScene: SKScene {
             at: center, in: effectLayer,
             color: axis.skColor,
             count: max(8, min(amount / 5, 18)),
-            radius: 70, zPosition: 670
+            radius: 140, zPosition: 670
         )
 
         // 3) フローティングテキスト（影付き、軸アイコン＋金額）
         let container = SKNode()
-        container.position = CGPoint(x: center.x + CGFloat.random(in: -40...40),
-                                     y: center.y + 18)
+        container.position = CGPoint(x: center.x + CGFloat.random(in: -80...80),
+                                     y: center.y + 36)
         container.zPosition = 700
         container.alpha = 0
         container.setScale(0.5)
@@ -549,7 +549,7 @@ final class CityScene: SKScene {
         star.fontName  = "AvenirNext-Heavy"
         star.fontSize  = 16
         star.fontColor = SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
-        star.position  = CGPoint(x: -42, y: 7)
+        star.position  = CGPoint(x: -84, y: 14)
         star.horizontalAlignmentMode = .center
         container.addChild(star)
 
@@ -560,7 +560,7 @@ final class CityScene: SKScene {
             ]),
             SKAction.scale(to: 1.0, duration: 0.12),
             SKAction.group([
-                SKAction.moveBy(x: 0, y: 70, duration: 0.95),
+                SKAction.moveBy(x: 0, y: 140, duration: 0.95),
                 SKAction.sequence([
                     SKAction.wait(forDuration: 0.55),
                     SKAction.fadeOut(withDuration: 0.4)
@@ -685,15 +685,15 @@ final class CityScene: SKScene {
             : UIColor(white: 0.78, alpha: 0.55)
         let interval: TimeInterval = isStorm ? 0.018 : 0.038
         let speed: CGFloat         = isStorm ? 310    : 200
-        let dropH: CGFloat         = isStorm ? 14     : 9
-        let windX: CGFloat         = isStorm ? -45    : -12
+        let dropH: CGFloat         = isStorm ? 28     : 18
+        let windX: CGFloat         = isStorm ? -90    : -24
 
         let spawn = SKAction.repeatForever(SKAction.sequence([
             SKAction.run { [weak container] in
                 guard let container else { return }
                 let drop = SKSpriteNode(
                     color: dropColor,
-                    size: CGSize(width: 1.2, height: dropH)
+                    size: CGSize(width: 2.4, height: dropH)
                 )
                 drop.position = CGPoint(
                     x: CGFloat.random(in: -sceneW / 2 ... sceneW / 2),
@@ -883,12 +883,12 @@ final class CityScene: SKScene {
         let count = Int.random(in: 2...4)
         for _ in 0..<count {
             let light = SKSpriteNode(texture: tex)
-            light.size = CGSize(width: 5, height: 5)
+            light.size = CGSize(width: 10, height: 10)
             light.name = "lights_\(building.gridX)_\(building.gridY)"
             light.zPosition = building.zPosition + 0.5
             light.position = CGPoint(
-                x: building.position.x + CGFloat.random(in: -16...16),
-                y: building.position.y + CGFloat.random(in: 4...28)
+                x: building.position.x + CGFloat.random(in: -32...32),
+                y: building.position.y + CGFloat.random(in: 8...56)
             )
             light.alpha = 0  // nightLightLayer 自体の alpha は 0、点灯時に nightLightLayer.alpha が 1 になる
             // アクション: ランダムな間隔でちらつく（生活感）
@@ -917,7 +917,7 @@ final class CityScene: SKScene {
             tileHeight: CGFloat(map.tileHeight)
         )
         let move  = SKAction.move(to: center, duration: 0.45)
-        let scale = SKAction.scale(to: 0.25, duration: 0.45)  // 全体図に戻す
+        let scale = SKAction.scale(to: 0.5, duration: 0.45)  // 全体図に戻す
         move.timingMode  = .easeInEaseOut
         scale.timingMode = .easeInEaseOut
         cameraNode.run(SKAction.group([move, scale]))
@@ -1034,7 +1034,7 @@ final class CityScene: SKScene {
     @objc private func handlePinch(_ g: UIPinchGestureRecognizer) {
         switch g.state {
         case .began:    lastScale = cameraNode.xScale
-        case .changed:  cameraNode.setScale((lastScale / g.scale).clamped(to: 0.15...1.5))
+        case .changed:  cameraNode.setScale((lastScale / g.scale).clamped(to: 0.25...2.5))
         default: break
         }
     }
@@ -1066,7 +1066,7 @@ final class CityScene: SKScene {
     // GID: 1=草, 2=道路, 3=歩道, 4=水, 5=砂
 
     private func generateCityMap(size n: Int) -> ParsedMap {
-        let tw = 64, th = 32
+        let tw = 128, th = 64
         let cx = n / 2, cy = n / 2
 
         let tiles: [[MapTile]] = (0..<n).map { row in

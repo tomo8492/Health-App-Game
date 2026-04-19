@@ -122,7 +122,7 @@ enum SpriteEffects {
             let dx = cos(angle) * dist
             let dy = sin(angle) * dist
             let p = SKSpriteNode(texture: tex)
-            p.size = CGSize(width: 8, height: 8)
+            p.size = CGSize(width: 16, height: 16)
             p.position = position
             p.zPosition = zPosition
             p.alpha = 0.0
