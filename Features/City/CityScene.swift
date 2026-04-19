@@ -71,7 +71,7 @@ final class CityScene: SKScene {
 
     private func setupCamera() {
         camera = cameraNode
-        cameraNode.setScale(0.5)   // 座標系2倍 + カメラ0.5 = 以前の表示スケール維持
+        cameraNode.setScale(1.2)
         addChild(cameraNode)
         // マップ中心を起動時の初期表示位置に設定（setupMap() の後に呼ぶこと）
         if let map = parsedMap {

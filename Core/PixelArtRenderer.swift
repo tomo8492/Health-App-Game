@@ -714,29 +714,39 @@ enum PixelArtRenderer {
     static func invalidateCache() { cache.removeAllObjects() }
 
     #if DEBUG
-    /// 起動時に全アセットの読み込み状態をコンソールに出力
     static func debugAssetLoadStatus() {
         print("[PixelArt] === Asset Load Status ===")
+        print("[PixelArt] Bundle: \(Bundle.main.bundlePath)")
+        let hasCar = FileManager.default.fileExists(atPath: Bundle.main.bundlePath + "/Assets.car")
+        print("[PixelArt] Assets.car exists: \(hasCar)")
+        if !hasCar {
+            print("[PixelArt] ⚠️ Assets.car not found — run: xcodegen generate && Clean Build (Cmd+Shift+K)")
+        }
         let buildings = ["B001","B002","B003","B004","B005","B006","B007","B008","B009","B010",
                          "B011","B012","B013","B014","B015","B016","B017","B018","B019","B020",
                          "B021","B022","B023","B024","B025","B026","B027","B028","B029","B030"]
         var found = 0, missing = 0
         for id in buildings {
             let name = "bld_\(id)_lv1"
-            if UIImage(named: name) != nil { found += 1 }
-            else { print("[PixelArt]   ❌ Missing: \(name)"); missing += 1 }
+            if let img = UIImage(named: name) {
+                found += 1
+                print("[PixelArt]   ✅ \(name) (\(Int(img.size.width * img.scale))×\(Int(img.size.height * img.scale)))")
+            } else {
+                missing += 1
+                print("[PixelArt]   ❌ \(name)")
+            }
         }
         let tiles = ["tile_grass_0","tile_grass_1","tile_road","tile_sidewalk","tile_water","tile_sand","tile_cobblestone"]
         for t in tiles {
             if UIImage(named: t) != nil { found += 1 }
-            else { print("[PixelArt]   ❌ Missing: \(t)"); missing += 1 }
+            else { print("[PixelArt]   ❌ \(t)"); missing += 1 }
         }
         let npcs = (0...5).map { "npc_\($0)_f0" }
         for n in npcs {
             if UIImage(named: n) != nil { found += 1 }
-            else { print("[PixelArt]   ❌ Missing: \(n)"); missing += 1 }
+            else { print("[PixelArt]   ❌ \(n)"); missing += 1 }
         }
-        print("[PixelArt] ✅ Found: \(found), ❌ Missing: \(missing)")
+        print("[PixelArt] Total: \(found) loaded, \(missing) missing")
         print("[PixelArt] ========================")
     }
     #endif
