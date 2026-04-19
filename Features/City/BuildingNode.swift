@@ -44,20 +44,13 @@ final class BuildingNode: SKSpriteNode {
         self.level        = level
 
         let tex = PixelArtRenderer.buildingTexture(id: buildingId, level: level)
-        // テクスチャサイズ: 64 × (tileH + floors*floorH)
-        let floorH: CGFloat = 20
-        let cfg = BuildingVisualConfig.make(id: buildingId, level: level)
-        let totalH = PixelArtRenderer.tileH + CGFloat(cfg.floors) * floorH
-        let spriteSize = CGSize(width: PixelArtRenderer.tileW, height: totalH)
+        let spriteSize = PixelArtRenderer.buildingSpriteSize(id: buildingId, level: level)
 
         super.init(texture: tex, color: .clear, size: spriteSize)
 
-        // アンカーY: タイル前面底頂点がノード位置の tileH/2 下に来るよう調整
-        // anchorY: タイル前面底頂点がノード位置の tileH/2 下に来るよう調整
-        // buildingAnchorY() の内部呼び出しと重複しないよう cfg から直接計算
         self.anchorPoint = CGPoint(
             x: 0.5,
-            y: (PixelArtRenderer.tileH / 2) / totalH
+            y: PixelArtRenderer.buildingAnchorY(id: buildingId, level: level)
         )
 
         self.isUserInteractionEnabled = true
@@ -78,12 +71,9 @@ final class BuildingNode: SKSpriteNode {
     }
 
     private func onLevelUp() {
-        // テクスチャ更新
         let newTex = PixelArtRenderer.buildingTexture(id: buildingId, level: level)
-        let cfg = BuildingVisualConfig.make(id: buildingId, level: level)
-        let totalH = PixelArtRenderer.tileH + CGFloat(cfg.floors) * PixelArtRenderer.floorH
         self.texture = newTex
-        self.size = CGSize(width: PixelArtRenderer.tileW, height: totalH)
+        self.size = PixelArtRenderer.buildingSpriteSize(id: buildingId, level: level)
         self.anchorPoint = CGPoint(
             x: 0.5,
             y: PixelArtRenderer.buildingAnchorY(id: buildingId, level: level)

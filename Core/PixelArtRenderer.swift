@@ -813,11 +813,26 @@ enum PixelArtRenderer {
         }
     }
 
+    /// アセット画像が存在する場合はそのピクセルサイズを返す（なければ nil）
+    static func buildingAssetSize(id: String, level: Int) -> CGSize? {
+        guard let img = UIImage(named: "bld_\(id)_lv\(level)") else { return nil }
+        return CGSize(width: img.size.width * img.scale, height: img.size.height * img.scale)
+    }
+
+    /// 建物のスプライトサイズを返す（アセット画像があればそのサイズ、なければ floors ベース）
+    static func buildingSpriteSize(id: String, level: Int) -> CGSize {
+        if let assetSize = buildingAssetSize(id: id, level: level) {
+            return assetSize
+        }
+        let cfg = BuildingVisualConfig.make(id: id, level: level)
+        let totalH = tileH + CGFloat(cfg.floors) * floorH
+        return CGSize(width: tileW, height: totalH)
+    }
+
     /// 建物アンカー Y 値（anchorPoint.y に使う）
     static func buildingAnchorY(id: String, level: Int) -> CGFloat {
-        let cfg = BuildingVisualConfig.make(id: id, level: level)
-        let bH = CGFloat(cfg.floors) * floorH
-        return (tileH / 2) / (tileH + bH)
+        let spriteSize = buildingSpriteSize(id: id, level: level)
+        return (tileH / 2) / spriteSize.height
     }
 
     // MARK: - NPC Textures
