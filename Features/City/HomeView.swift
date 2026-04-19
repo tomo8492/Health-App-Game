@@ -39,7 +39,7 @@ struct HomeView: View {
             GeometryReader { geo in
                 SpriteView(
                     scene: makeScene(size: geo.size),
-                    options: [.allowsTransparency]
+                    options: [.allowsTransparency, .ignoresSiblingOrder]
                 )
                 .ignoresSafeArea()
             }

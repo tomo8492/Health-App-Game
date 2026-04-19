@@ -21,8 +21,7 @@ final class NPCNode: SKSpriteNode {
     private var walkFrame = 0
     private var currentMap: ParsedMap?
 
-    // ドット絵サイズ（8col×14row × 6px → 128px タイル基準の2倍解像度）
-    private static let spriteSize = CGSize(width: 96, height: 168)
+    private static let spriteSize = CGSize(width: 48, height: 84)
 
     // MARK: - Init
 
@@ -53,8 +52,8 @@ final class NPCNode: SKSpriteNode {
     // MARK: - アイドルアニメーション（上下ゆらぎ）
 
     private func startIdleAnimation() {
-        let up   = SKAction.moveBy(x: 0, y: 3.0, duration: 0.9)
-        let down = SKAction.moveBy(x: 0, y: -3.0, duration: 0.9)
+        let up   = SKAction.moveBy(x: 0, y: 1.5, duration: 0.9)
+        let down = SKAction.moveBy(x: 0, y: -1.5, duration: 0.9)
         up.timingMode   = .easeInEaseOut
         down.timingMode = .easeInEaseOut
         run(SKAction.repeatForever(SKAction.sequence([up, down])), withKey: "idle")
@@ -162,7 +161,7 @@ final class NPCNode: SKSpriteNode {
         bg.fillColor   = .white
         bg.strokeColor = UIColor(white: 0.65, alpha: 0.9)
         bg.lineWidth   = 0.6
-        bg.position    = CGPoint(x: 0, y: 144)   // NPC 頭上
+        bg.position    = CGPoint(x: 0, y: 72)
         bg.zPosition   = 200
         bg.name        = "emote"
         bg.alpha       = 0
@@ -193,7 +192,7 @@ final class NPCNode: SKSpriteNode {
         guard childNode(withName: "speech") == nil else { return }
 
         let container = SKNode()
-        container.position = CGPoint(x: 0, y: 160)
+        container.position = CGPoint(x: 0, y: 80)
         container.zPosition = 210
         container.name = "speech"
         container.alpha = 0
