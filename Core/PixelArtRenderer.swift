@@ -764,44 +764,56 @@ enum PixelArtRenderer {
 
     // MARK: - Ground Tiles
 
+    private static func compositeTile(asset: String, baseColor: UIColor) -> SKTexture {
+        let w = tileW, h = tileH
+        let size = CGSize(width: w, height: h)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            let diamond = diamondPath(w: w, h: h)
+            baseColor.setFill()
+            diamond.fill()
+            if let assetImg = UIImage(named: asset) {
+                cg.saveGState()
+                diamond.addClip()
+                assetImg.draw(in: CGRect(origin: .zero, size: size))
+                cg.restoreGState()
+            }
+        }
+        let t = SKTexture(image: img)
+        t.filteringMode = .nearest
+        return t
+    }
+
     static func grassTile(variant: Int = 0) -> SKTexture {
         cached("grass\(variant)") {
-            assetTexture("tile_grass_\(variant)") ??
-            isoTile(top: UIColor(hex: variant == 0 ? "6BC845" : "59B035"),
-                    shadow: UIColor(hex:"3A8A20"), grass: true)
+            compositeTile(asset: "tile_grass_\(variant)",
+                          baseColor: UIColor(hex: variant == 0 ? "6BC845" : "59B035"))
         }
     }
     static func roadTile() -> SKTexture {
         cached("road") {
-            assetTexture("tile_road") ??
-            isoTile(top: UIColor(hex:"B0A890"), shadow: UIColor(hex:"706850"),
-                    grass: false, roadMarkings: true)
+            compositeTile(asset: "tile_road", baseColor: UIColor(hex: "B0A890"))
         }
     }
     static func sidewalkTile() -> SKTexture {
         cached("sidewalk") {
-            assetTexture("tile_sidewalk") ??
-            isoTile(top: UIColor(hex:"D8D0B8"), shadow: UIColor(hex:"989078"), grass: false)
+            compositeTile(asset: "tile_sidewalk", baseColor: UIColor(hex: "D8D0B8"))
         }
     }
     static func waterTile() -> SKTexture {
         cached("water") {
-            assetTexture("tile_water") ??
-            isoTile(top: UIColor(hex:"5BB8FF"), shadow: UIColor(hex:"2A7AC0"), grass: false)
+            compositeTile(asset: "tile_water", baseColor: UIColor(hex: "5BB8FF"))
         }
     }
     static func sandTile() -> SKTexture {
         cached("sand") {
-            assetTexture("tile_sand") ??
-            isoTile(top: UIColor(hex:"F0D890"), shadow: UIColor(hex:"C0A850"), grass: false)
+            compositeTile(asset: "tile_sand", baseColor: UIColor(hex: "F0D890"))
         }
     }
 
     static func cobblestoneTile() -> SKTexture {
         cached("cobblestone") {
-            assetTexture("tile_cobblestone") ??
-            isoTile(top: UIColor(hex:"C8B8A0"), shadow: UIColor(hex:"8A7A60"),
-                    grass: false, cobblestone: true)
+            compositeTile(asset: "tile_cobblestone", baseColor: UIColor(hex: "C8B8A0"))
         }
     }
 
