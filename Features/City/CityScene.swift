@@ -182,7 +182,7 @@ final class CityScene: SKScene {
                 // 街路灯: 道路タイル (gid==2) で 4 マスごと、最大 24 本
                 if tile.gid == 2 && (col + row) % 4 == 0 && lampCount < 24 {
                     let lamp = SKSpriteNode(texture: lampTex,
-                                           size: CGSize(width: 8, height: 22))
+                                           size: CGSize(width: 16, height: 44))
                     lamp.position    = CGPoint(x: pos.x + 4, y: pos.y + 4)
                     lamp.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     lamp.zPosition   = z + 0.03
@@ -193,7 +193,7 @@ final class CityScene: SKScene {
                 // ベンチ: 歩道タイル (gid==3) で 6 マスごと
                 if tile.gid == 3 && (col + row) % 6 == 0 {
                     let bench = SKSpriteNode(texture: benchTex,
-                                            size: CGSize(width: 16, height: 12))
+                                            size: CGSize(width: 32, height: 24))
                     bench.position    = CGPoint(x: pos.x, y: pos.y + 2)
                     bench.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     bench.zPosition   = z + 0.01
@@ -203,7 +203,7 @@ final class CityScene: SKScene {
                 // 花鉢: 歩道タイル (gid==3) で 8 マスごと（ベンチと被らない）
                 if tile.gid == 3 && (col + row) % 8 == 3 {
                     let pot = SKSpriteNode(texture: flowerTex,
-                                          size: CGSize(width: 10, height: 14))
+                                          size: CGSize(width: 20, height: 28))
                     pot.position    = CGPoint(x: pos.x - 3, y: pos.y + 2)
                     pot.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     pot.zPosition   = z + 0.02
@@ -213,7 +213,7 @@ final class CityScene: SKScene {
                 // 案内標識: 歩道タイル (gid==3) で 12 マスごと
                 if tile.gid == 3 && (col + row) % 12 == 7 {
                     let sign = SKSpriteNode(texture: signpostTex,
-                                           size: CGSize(width: 12, height: 20))
+                                           size: CGSize(width: 24, height: 40))
                     sign.position    = CGPoint(x: pos.x + 5, y: pos.y + 3)
                     sign.anchorPoint = CGPoint(x: 0.5, y: 0.0)
                     sign.zPosition   = z + 0.02
@@ -234,7 +234,7 @@ final class CityScene: SKScene {
             guard x >= 0 && x < map.width && y >= 0 && y < map.height else { continue }
             let variant = (x + y) % 2
             let tex = PixelArtRenderer.treeTexture(variant: variant)
-            let node = SKSpriteNode(texture: tex, size: CGSize(width: 22, height: 34))
+            let node = SKSpriteNode(texture: tex, size: CGSize(width: 44, height: 68))
             node.position = TiledMapParser.isoToScreen(
                 x: x, y: y,
                 tileWidth: CGFloat(map.tileWidth),

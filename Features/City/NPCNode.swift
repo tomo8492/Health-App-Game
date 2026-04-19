@@ -21,8 +21,8 @@ final class NPCNode: SKSpriteNode {
     private var walkFrame = 0
     private var currentMap: ParsedMap?
 
-    // ドット絵サイズ（8col×14row × 3px）
-    private static let spriteSize = CGSize(width: 24, height: 42)
+    // ドット絵サイズ（8col×14row × 3px → 表示は2倍でタイル比バランス調整）
+    private static let spriteSize = CGSize(width: 48, height: 84)
 
     // MARK: - Init
 
@@ -162,7 +162,7 @@ final class NPCNode: SKSpriteNode {
         bg.fillColor   = .white
         bg.strokeColor = UIColor(white: 0.65, alpha: 0.9)
         bg.lineWidth   = 0.6
-        bg.position    = CGPoint(x: 0, y: 38)   // NPC 頭上
+        bg.position    = CGPoint(x: 0, y: 72)   // NPC 頭上
         bg.zPosition   = 200
         bg.name        = "emote"
         bg.alpha       = 0
@@ -193,7 +193,7 @@ final class NPCNode: SKSpriteNode {
         guard childNode(withName: "speech") == nil else { return }
 
         let container = SKNode()
-        container.position = CGPoint(x: 0, y: 44)
+        container.position = CGPoint(x: 0, y: 80)
         container.zPosition = 210
         container.name = "speech"
         container.alpha = 0
