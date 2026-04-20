@@ -52,6 +52,9 @@ final class CityScene: SKScene {
     private var windmillFrameTimer: TimeInterval = 0
     private var windmillFrame: Int = 0
 
+    // 次に鳥の群れが出現するまでの elapsedTime 目標値（初回 15s、以降 45-90s）
+    private var nextBirdFlockTime: TimeInterval = 15.0
+
     // MARK: - カメラ
 
     private let cameraNode = SKCameraNode()
@@ -437,13 +440,19 @@ final class CityScene: SKScene {
                 )
                 let z = CGFloat(col + row) * 0.1 + 0.025
                 if tile.gid == 3 && key == 5 {
-                    let tex = PixelArtRenderer.flowerBedTexture(variant: (col + row) % 2)
+                    let variant = (col + row) % 2
+                    let tex = PixelArtRenderer.flowerBedTexture(variant: variant)
                     let node = SKSpriteNode(texture: tex, size: CGSize(width: 32, height: 20))
                     node.position = CGPoint(x: pos.x, y: pos.y - 2)
                     node.anchorPoint = CGPoint(x: 0.5, y: 0.1)
                     node.zPosition = z
                     node.name = "flowerbed"
                     buildingLayer.addChild(node)
+                    // 暖色花壇はオレンジ蝶、寒色花壇は紫蝶
+                    let butterflyColor: UIColor = variant == 0
+                        ? UIColor(red: 1.0, green: 0.7, blue: 0.3, alpha: 1.0)
+                        : UIColor(red: 0.7, green: 0.5, blue: 0.95, alpha: 1.0)
+                    SpriteEffects.attachButterfly(to: node, color: butterflyColor)
                     propCount += 1
                 } else if tile.gid == 3 && key == 11 {
                     let node = SKSpriteNode(
@@ -999,12 +1008,30 @@ final class CityScene: SKScene {
         if !hasAdventurer && total >= 5 && (coordinator?.cityLevel ?? 0) >= 3 {
             return .adventurer
         }
-        // 5 種の住民を均等に分配
-        let residents: [NPCType] = [.citizen1, .citizen2, .elder, .child, .citizen3]
+        // 時間帯で出現確率を重み付け（朝は elder 多め、下校時は child 多め、夜は citizen のみ）
+        let residents = weightedResidentPool(hour: currentHour)
         let counts = residents.map { t in npcs.filter { $0.npcType == t }.count }
         let minCount = counts.min() ?? 0
         let candidates = zip(residents, counts).filter { $0.1 == minCount }.map(\.0)
         return candidates.randomElement() ?? .citizen1
+    }
+
+    /// 時間帯別の NPC type 候補プール（重複数で出現確率を表現）
+    /// - 5-9  : 朝の散歩・通勤（elder・citizen1/2 多め、child なし）
+    /// - 10-15: 昼間の混在（全種バランス）
+    /// - 16-19: 下校・帰宅ラッシュ（child・citizen1/2/3 多め）
+    /// - 20-4 : 夜（citizen2/3 のみ）
+    private func weightedResidentPool(hour: Int) -> [NPCType] {
+        switch hour {
+        case 5...9:
+            return [.elder, .elder, .citizen1, .citizen1, .citizen2, .citizen3]
+        case 10...15:
+            return [.citizen1, .citizen2, .citizen3, .elder, .child]
+        case 16...19:
+            return [.child, .child, .citizen1, .citizen2, .citizen3, .elder]
+        default: // 20-4
+            return [.citizen2, .citizen2, .citizen3, .citizen3, .citizen1]
+        }
     }
 
     // MARK: - 時間帯ライティング（常時オーバーレイ + 夜の窓ライト）
@@ -1313,6 +1340,19 @@ final class CityScene: SKScene {
         updateTreeSway()
         updateWindmill(dt: dt)
         updateWindowFlicker()
+        updateBirdFlock()
+    }
+
+    /// 昼間のみ、45〜90 秒間隔でランダムに鳥の群れを空に出現させる
+    private func updateBirdFlock() {
+        guard elapsedTime >= nextBirdFlockTime else { return }
+        // 嵐・深夜は飛ばさない
+        let isDaytime = (6...18).contains(currentHour)
+        let isStorm   = currentWeather == .stormy
+        if isDaytime && !isStorm {
+            SpriteEffects.spawnBirdFlock(in: weatherLayer, sceneSize: size, zPosition: 210)
+        }
+        nextBirdFlockTime = elapsedTime + TimeInterval.random(in: 45...90)
     }
 
     private func updateWaterAnimation(dt: TimeInterval) {

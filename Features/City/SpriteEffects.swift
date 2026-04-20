@@ -294,6 +294,151 @@ enum SpriteEffects {
         building.childNode(withName: "smokeEmitter")?.removeFromParent()
     }
 
+    // MARK: - 鳥の群れ（空を横切る）
+
+    /// V 字・直線の鳥シルエットテクスチャ（2 フレーム：上羽・下羽）
+    /// frame: 0 = 羽を上げた ^ 形, 1 = 羽を下げた ∨ 形
+    static func birdTexture(frame: Int) -> SKTexture {
+        cached("bird_f\(frame % 2)") {
+            let size = CGSize(width: 10, height: 6)
+            let img = UIGraphicsImageRenderer(size: size).image { ctx in
+                let cg = ctx.cgContext
+                cg.setFillColor(UIColor(white: 0.18, alpha: 1.0).cgColor)
+                if frame % 2 == 0 {
+                    // 羽を上げた形 ^（両翼が少し上がっている）
+                    cg.fill(CGRect(x: 0, y: 2, width: 2, height: 1))
+                    cg.fill(CGRect(x: 2, y: 1, width: 2, height: 1))
+                    cg.fill(CGRect(x: 4, y: 2, width: 2, height: 1))
+                    cg.fill(CGRect(x: 6, y: 1, width: 2, height: 1))
+                    cg.fill(CGRect(x: 8, y: 2, width: 2, height: 1))
+                } else {
+                    // 羽を下げた形 ∨
+                    cg.fill(CGRect(x: 0, y: 3, width: 2, height: 1))
+                    cg.fill(CGRect(x: 2, y: 4, width: 2, height: 1))
+                    cg.fill(CGRect(x: 4, y: 3, width: 2, height: 1))
+                    cg.fill(CGRect(x: 6, y: 4, width: 2, height: 1))
+                    cg.fill(CGRect(x: 8, y: 3, width: 2, height: 1))
+                }
+            }
+            let t = SKTexture(image: img); t.filteringMode = .nearest; return t
+        }
+    }
+
+    /// parent レイヤーに 3-5 羽の鳥群れを出現させ、sceneSize の横幅分を斜めに横切らせる
+    /// zPosition は雲（180-200）より少し上、天気 emitter より下を想定（= 210）
+    static func spawnBirdFlock(
+        in parent: SKNode,
+        sceneSize: CGSize,
+        zPosition: CGFloat = 210
+    ) {
+        let count = Int.random(in: 3...5)
+        let goingRight = Bool.random()
+        let startX = goingRight ? -sceneSize.width * 0.6 : sceneSize.width * 0.6
+        let endX   = -startX
+        let startY = CGFloat.random(in: sceneSize.height * 0.1...sceneSize.height * 0.35)
+        let endY   = startY - CGFloat.random(in: 20...60)
+        let duration = TimeInterval.random(in: 6.0...9.0)
+        let tex0 = birdTexture(frame: 0)
+        let tex1 = birdTexture(frame: 1)
+        let flap = SKAction.animate(with: [tex0, tex1], timePerFrame: 0.18, resize: false, restore: false)
+        let flapForever = SKAction.repeatForever(flap)
+
+        for i in 0..<count {
+            let bird = SKSpriteNode(texture: tex0)
+            bird.size = CGSize(width: 12, height: 8)
+            // V 字編隊: 中央が先頭、両翼が少し後ろ下がり
+            let offsetFromLead = CGFloat(i) * 8
+            let sideShift = CGFloat(i % 2 == 0 ? -1 : 1) * CGFloat((i + 1) / 2) * 6
+            bird.position = CGPoint(
+                x: startX + (goingRight ? -offsetFromLead : offsetFromLead),
+                y: startY + sideShift
+            )
+            bird.zPosition = zPosition
+            bird.alpha = 0
+            if !goingRight { bird.xScale = -1 }
+            parent.addChild(bird)
+            bird.run(flapForever, withKey: "flap")
+
+            let target = CGPoint(
+                x: endX + (goingRight ? -offsetFromLead : offsetFromLead),
+                y: endY + sideShift
+            )
+            bird.run(SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.9, duration: 0.4),
+                SKAction.move(to: target, duration: duration),
+                SKAction.removeFromParent()
+            ]))
+        }
+    }
+
+    // MARK: - 蝶（花壇に付随してふわふわ飛ぶ）
+
+    /// 2 フレーム（羽を開いた / 閉じた）の小さな蝶テクスチャ
+    static func butterflyTexture(color: UIColor, frame: Int) -> SKTexture {
+        let key = "butterfly_\(color.description)_f\(frame % 2)"
+        return cached(key) {
+            let size = CGSize(width: 8, height: 6)
+            let img = UIGraphicsImageRenderer(size: size).image { ctx in
+                let cg = ctx.cgContext
+                // 胴体
+                cg.setFillColor(UIColor(white: 0.12, alpha: 1.0).cgColor)
+                cg.fill(CGRect(x: 3, y: 2, width: 2, height: 2))
+                // 羽
+                cg.setFillColor(color.cgColor)
+                if frame % 2 == 0 {
+                    // 羽を開いた
+                    cg.fill(CGRect(x: 0, y: 1, width: 3, height: 3))
+                    cg.fill(CGRect(x: 5, y: 1, width: 3, height: 3))
+                    cg.setFillColor(UIColor.white.withAlphaComponent(0.6).cgColor)
+                    cg.fill(CGRect(x: 1, y: 2, width: 1, height: 1))
+                    cg.fill(CGRect(x: 6, y: 2, width: 1, height: 1))
+                } else {
+                    // 羽を閉じた（縦長）
+                    cg.fill(CGRect(x: 2, y: 0, width: 1, height: 5))
+                    cg.fill(CGRect(x: 5, y: 0, width: 1, height: 5))
+                }
+            }
+            let t = SKTexture(image: img); t.filteringMode = .nearest; return t
+        }
+    }
+
+    /// 花壇などに蝶を付与する（楕円軌道でふわふわ飛び、羽ばたきも同期）
+    static func attachButterfly(to parent: SKNode, color: UIColor) {
+        // 二重 attach 防止: 子に名前 "butterfly" のノードがあればスキップ
+        if parent.childNode(withName: "butterfly") != nil { return }
+
+        let butterfly = SKSpriteNode(texture: butterflyTexture(color: color, frame: 0))
+        butterfly.size = CGSize(width: 10, height: 8)
+        butterfly.position = CGPoint(x: 0, y: 10)
+        butterfly.zPosition = 1.0
+        butterfly.name = "butterfly"
+        parent.addChild(butterfly)
+
+        // 羽ばたき（連続）
+        let flap = SKAction.animate(
+            with: [butterflyTexture(color: color, frame: 0),
+                   butterflyTexture(color: color, frame: 1)],
+            timePerFrame: 0.12, resize: false, restore: false
+        )
+        butterfly.run(SKAction.repeatForever(flap), withKey: "flap")
+
+        // 楕円軌道: sin/cos を CGPath で近似
+        let path = CGMutablePath()
+        let rx: CGFloat = 16
+        let ry: CGFloat = 10
+        let cy: CGFloat = 16
+        let steps = 36
+        for i in 0...steps {
+            let t = CGFloat(i) / CGFloat(steps) * .pi * 2
+            let x = cos(t) * rx
+            let y = sin(t) * ry + cy
+            if i == 0 { path.move(to: CGPoint(x: x, y: y)) }
+            else      { path.addLine(to: CGPoint(x: x, y: y)) }
+        }
+        let follow = SKAction.follow(path, asOffset: false, orientToPath: false, duration: 5.2)
+        butterfly.run(SKAction.repeatForever(follow), withKey: "butterflyFloat")
+    }
+
     /// 横長の柔らかい雲（NSCache）
     static func cloudTexture(variant: Int = 0) -> SKTexture {
         let key = "cloud_\(variant)"
