@@ -45,14 +45,18 @@ final class CityScene: SKScene {
     // MARK: - ライフサイクル
 
     override func didMove(to view: SKView) {
-        // coordinator の scene 参照を自身に設定（双方向通信に必要）
         coordinator?.scene = self
         setupScene()
-        setupMap()      // parsedMap を先にセットしてからカメラ初期位置を決定
+        setupMap()
         setupCamera()
         setupHUD()
         setupGestures(in: view)
         startTimeBasedUpdates()
+        // 初期 NPC スポーン（totalCP=0 でも最低1体）
+        if let coordinator {
+            let count = max(coordinator.npcCount, 1)
+            updateNPCCount(count)
+        }
     }
 
     // MARK: - シーン初期設定
