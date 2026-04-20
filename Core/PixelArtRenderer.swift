@@ -651,7 +651,6 @@ private enum NPCPixels {
         var p = pixels
         guard p.count > 3 else { return p }
 
-        // 瞬き: 目(3)→肌(2)で一瞬閉じる
         if blink {
             p[2] = p[2].map { $0 == 3 ? 2 : $0 }
             return p
@@ -659,7 +658,6 @@ private enum NPCPixels {
 
         switch mood {
         case .tired:
-            // 目の周囲に影色(8)でクマ表現
             for i in 0..<p[2].count {
                 if p[2][i] == 2 && i > 0 && i < p[2].count - 1 {
                     let hasEyeNeighbor = (i > 0 && p[2][i-1] == 3) || (i < p[2].count-1 && p[2][i+1] == 3)
@@ -669,12 +667,67 @@ private enum NPCPixels {
         case .normal:
             break
         case .happy:
-            // ^_^ 顔: 目を閉じて笑顔に
             p[2] = p[2].map { $0 == 3 ? 2 : $0 }
-            // 口元に笑みライン（目の色で）
             if p[3].count >= 5 { p[3][3] = 3; p[3][4] = 3 }
-            // 頬紅（9=blush）
             if p[3].count >= 6 { p[3][2] = 9; p[3][5] = 9 }
+        }
+        return p
+    }
+
+    // MARK: - 喜びポーズ変換（アイドルフレームから生成）
+
+    static func joyPose(from base: [[Int]]) -> [[Int]] {
+        var p = base
+        guard p.count >= 14 else { return p }
+        // ^_^ face + blush
+        p[2] = p[2].map { $0 == 3 ? 2 : $0 }
+        if p[3].count >= 5 { p[3][3] = 3; p[3][4] = 3 }
+        if p[3].count >= 6 { p[3][2] = 9; p[3][5] = 9 }
+        return p
+    }
+
+    static func joyJump(from base: [[Int]]) -> [[Int]] {
+        var p = joyPose(from: base)
+        guard p.count >= 14 else { return p }
+        // 下半身を中央寄せ（ジャンプ中の足閉じ）
+        for row in 10..<min(14, p.count) {
+            let w = p[row].count
+            let nonZero = p[row].enumerated().compactMap { $0.element != 0 ? ($0.offset, $0.element) : nil }
+            if !nonZero.isEmpty {
+                var centered = Array(repeating: 0, count: w)
+                let start = (w - nonZero.count) / 2
+                for (i, (_, val)) in nonZero.enumerated() {
+                    let idx = start + i
+                    if idx >= 0 && idx < w { centered[idx] = val }
+                }
+                p[row] = centered
+            }
+        }
+        return p
+    }
+
+    // MARK: - 悲しみポーズ変換
+
+    static func sadPose(from base: [[Int]]) -> [[Int]] {
+        var p = base
+        guard p.count >= 4 else { return p }
+        // 目のクマ
+        for i in 0..<p[2].count {
+            if p[2][i] == 2 && i > 0 && i < p[2].count - 1 {
+                let adj = (p[2][max(0,i-1)] == 3) || (p[2][min(p[2].count-1,i+1)] == 3)
+                if adj { p[2][i] = 8 }
+            }
+        }
+        return p
+    }
+
+    static func sadDroop(from base: [[Int]]) -> [[Int]] {
+        var p = sadPose(from: base)
+        guard p.count >= 4 else { return p }
+        // 頭を右に傾ける
+        for row in 0...3 {
+            var shifted = [0] + Array(p[row].dropLast())
+            p[row] = shifted
         }
         return p
     }
@@ -949,6 +1002,53 @@ enum PixelArtRenderer {
     }
 
     static func npcAllTypes() -> [NPCType] { NPCType.allCases }
+
+    // MARK: - NPC Animation Textures (Joy / Sad)
+
+    static func npcJoyTextures(type: NPCType) -> [SKTexture] {
+        let base = NPCPixels.pixels(for: type, frame: 0)
+        return [
+            cached("npc_\(type.rawValue)_joy_0") {
+                npcSpriteFromPixels(type: type, pixels: NPCPixels.joyPose(from: base))
+            },
+            cached("npc_\(type.rawValue)_joy_1") {
+                npcSpriteFromPixels(type: type, pixels: NPCPixels.joyJump(from: base))
+            }
+        ]
+    }
+
+    static func npcSadTextures(type: NPCType) -> [SKTexture] {
+        let base = NPCPixels.pixels(for: type, frame: 0)
+        return [
+            cached("npc_\(type.rawValue)_sad_0") {
+                npcSpriteFromPixels(type: type, pixels: NPCPixels.sadPose(from: base))
+            },
+            cached("npc_\(type.rawValue)_sad_1") {
+                npcSpriteFromPixels(type: type, pixels: NPCPixels.sadDroop(from: base))
+            }
+        ]
+    }
+
+    private static func npcSpriteFromPixels(type: NPCType, pixels: [[Int]]) -> SKTexture {
+        let ps: CGFloat = 6
+        let cols = 8, rows = 14
+        let palette = NPCColors.palette(for: type)
+        let img = UIGraphicsImageRenderer(
+            size: CGSize(width: CGFloat(cols)*ps, height: CGFloat(rows)*ps)
+        ).image { ctx in
+            for row in 0..<rows {
+                for col in 0..<cols {
+                    guard row < pixels.count, col < pixels[row].count else { continue }
+                    let ci = pixels[row][col]
+                    guard ci > 0, ci <= palette.count else { continue }
+                    ctx.cgContext.setFillColor(palette[ci-1].cgColor)
+                    ctx.cgContext.fill(CGRect(x: CGFloat(col)*ps, y: CGFloat(row)*ps,
+                                             width: ps, height: ps))
+                }
+            }
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
 
     // MARK: - Tree
 

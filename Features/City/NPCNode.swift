@@ -52,14 +52,62 @@ final class NPCNode: SKSpriteNode {
         scheduleNextMove()
     }
 
-    // MARK: - アイドルアニメーション（上下ゆらぎ）
+    // MARK: - アイドルアニメーション（ムードで分岐）
 
     private func startIdleAnimation() {
-        let up   = SKAction.moveBy(x: 0, y: 1.5, duration: 0.9)
-        let down = SKAction.moveBy(x: 0, y: -1.5, duration: 0.9)
-        up.timingMode   = .easeInEaseOut
-        down.timingMode = .easeInEaseOut
-        run(SKAction.repeatForever(SKAction.sequence([up, down])), withKey: "idle")
+        removeAction(forKey: "idle")
+        removeAction(forKey: "moodAnim")
+
+        switch mood {
+        case .happy:
+            playJoyAnimation()
+        case .tired:
+            playSadAnimation()
+        case .normal:
+            let up   = SKAction.moveBy(x: 0, y: 1.5, duration: 0.9)
+            let down = SKAction.moveBy(x: 0, y: -1.5, duration: 0.9)
+            up.timingMode   = .easeInEaseOut
+            down.timingMode = .easeInEaseOut
+            run(SKAction.repeatForever(SKAction.sequence([up, down])), withKey: "idle")
+        }
+    }
+
+    // MARK: - 喜びアニメーション
+
+    private func playJoyAnimation() {
+        let textures = PixelArtRenderer.npcJoyTextures(type: npcType)
+        guard textures.count >= 2 else { return }
+
+        let frameDuration = 0.3
+        let animateFrames = SKAction.animate(with: textures, timePerFrame: frameDuration)
+
+        let bounce = SKAction.sequence([
+            SKAction.moveBy(x: 0, y: 4, duration: frameDuration),
+            SKAction.moveBy(x: 0, y: -4, duration: frameDuration)
+        ])
+        bounce.timingMode = .easeInEaseOut
+
+        let cycle = SKAction.group([animateFrames, bounce])
+        run(SKAction.repeatForever(cycle), withKey: "moodAnim")
+    }
+
+    // MARK: - 悲しみアニメーション
+
+    private func playSadAnimation() {
+        let textures = PixelArtRenderer.npcSadTextures(type: npcType)
+        guard textures.count >= 2 else { return }
+
+        let frameDuration = 0.6
+        let animateFrames = SKAction.animate(with: textures, timePerFrame: frameDuration)
+
+        let sway = SKAction.sequence([
+            SKAction.moveBy(x: -1.5, y: -0.5, duration: frameDuration),
+            SKAction.moveBy(x: 1.5, y: 0.5, duration: frameDuration)
+        ])
+        sway.timingMode = .easeInEaseOut
+
+        let cycle = SKAction.group([animateFrames, sway])
+        run(SKAction.repeatForever(cycle), withKey: "moodAnim")
     }
 
     // MARK: - 瞬きサイクル
@@ -111,6 +159,7 @@ final class NPCNode: SKSpriteNode {
 
         isMoving = true
         removeAction(forKey: "idle")
+        removeAction(forKey: "moodAnim")
 
         let moveActions: [SKAction] = path.dropFirst().map { point -> SKAction in
             let screenPos = TiledMapParser.isoToScreen(
@@ -161,6 +210,9 @@ final class NPCNode: SKSpriteNode {
         if mood != newMood {
             mood = newMood
             refreshTexture()
+            if !isMoving {
+                startIdleAnimation()
+            }
         }
 
         if cpLevel > 300 {
@@ -172,6 +224,12 @@ final class NPCNode: SKSpriteNode {
             if Int.random(in: 0..<12) == 0 {
                 let emotes = mood == .happy ? ["♪", "★", "♡", "✨"] : ["♪", "★", "♡", "!"]
                 showEmote(emotes.randomElement() ?? "♪")
+            }
+        } else if cpLevel <= 100 {
+            removeAction(forKey: "pulse")
+            run(SKAction.scale(to: 1.0, duration: 0.2))
+            if Int.random(in: 0..<20) == 0 {
+                showEmote(["…", "💤", "😓"].randomElement() ?? "…")
             }
         } else {
             removeAction(forKey: "pulse")
