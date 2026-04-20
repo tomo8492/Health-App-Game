@@ -6,6 +6,7 @@
 // - A* 経路探索 + SKAction でランダム経路移動（CLAUDE.md Key Rule 10）
 // - CP 量でスポーン数・活発度を制御
 // - 歩行フレームアニメーション（4フレームサイクル）
+// - 体調表情システム: tired / normal / happy + 瞬きアニメーション
 
 import SpriteKit
 
@@ -20,6 +21,8 @@ final class NPCNode: SKSpriteNode {
     private var isMoving = false
     private var walkFrame = 0
     private var currentMap: ParsedMap?
+    private var mood: NPCMood = .normal
+    private var isBlinking = false
 
     private static let spriteSize = CGSize(width: 48, height: 84)
 
@@ -33,7 +36,6 @@ final class NPCNode: SKSpriteNode {
         let tex = PixelArtRenderer.npcTexture(type: self.npcType, walkFrame: 0)
         super.init(texture: tex, color: .clear, size: NPCNode.spriteSize)
 
-        // 足元を基準にアンカー設定
         self.anchorPoint = CGPoint(x: 0.5, y: 0.1)
         self.name = "npc_\(Int.random(in: 1000...9999))"
         self.isUserInteractionEnabled = true
@@ -46,6 +48,7 @@ final class NPCNode: SKSpriteNode {
     func startWandering(map: ParsedMap) {
         self.currentMap = map
         startIdleAnimation()
+        startBlinkCycle()
         scheduleNextMove()
     }
 
@@ -57,6 +60,31 @@ final class NPCNode: SKSpriteNode {
         up.timingMode   = .easeInEaseOut
         down.timingMode = .easeInEaseOut
         run(SKAction.repeatForever(SKAction.sequence([up, down])), withKey: "idle")
+    }
+
+    // MARK: - 瞬きサイクル
+
+    private func startBlinkCycle() {
+        let delay = Double.random(in: 2.0...5.0)
+        run(SKAction.sequence([
+            SKAction.wait(forDuration: delay),
+            SKAction.run { [weak self] in self?.performBlink() }
+        ]), withKey: "blinkCycle")
+    }
+
+    private func performBlink() {
+        guard !isBlinking else { return }
+        isBlinking = true
+        refreshTexture()
+
+        run(SKAction.sequence([
+            SKAction.wait(forDuration: 0.12),
+            SKAction.run { [weak self] in
+                self?.isBlinking = false
+                self?.refreshTexture()
+                self?.startBlinkCycle()
+            }
+        ]), withKey: "blinkAction")
     }
 
     // MARK: - 移動スケジュール
@@ -84,7 +112,6 @@ final class NPCNode: SKSpriteNode {
         isMoving = true
         removeAction(forKey: "idle")
 
-        // フレームアニメーション付き移動
         let moveActions: [SKAction] = path.dropFirst().map { point -> SKAction in
             let screenPos = TiledMapParser.isoToScreen(
                 x: point.x, y: point.y,
@@ -97,7 +124,6 @@ final class NPCNode: SKSpriteNode {
                 SKAction.run { [weak self] in
                     self?.gridX = point.x
                     self?.gridY = point.y
-                    // Z ソート更新
                     self?.zPosition = CGFloat(point.x + point.y) * 0.1 + 0.05
                 }
             ])
@@ -107,7 +133,7 @@ final class NPCNode: SKSpriteNode {
             SKAction.run { [weak self] in
                 self?.isMoving = false
                 self?.walkFrame = 0
-                self?.updateTexture(frame: 0)
+                self?.refreshTexture()
                 self?.startIdleAnimation()
                 self?.scheduleNextMove()
             }
@@ -119,28 +145,32 @@ final class NPCNode: SKSpriteNode {
 
     private func advanceWalkFrame() {
         walkFrame = (walkFrame + 1) % 4
-        updateTexture(frame: walkFrame)
+        refreshTexture()
     }
 
-    private func updateTexture(frame: Int) {
-        texture = PixelArtRenderer.npcTexture(type: npcType, walkFrame: frame)
+    private func refreshTexture() {
+        texture = PixelArtRenderer.npcTexture(
+            type: npcType, walkFrame: walkFrame,
+            mood: mood, blink: isBlinking)
     }
 
     // MARK: - CP レベルで表情変化
 
     func setMood(cpLevel: Int) {
-        let targetAlpha: CGFloat = cpLevel > 200 ? 1.0 : cpLevel > 100 ? 0.8 : 0.6
-        run(SKAction.fadeAlpha(to: targetAlpha, duration: 0.5))
-        // 活発度: 高 CP で歩行速度 UP + エモート表示
+        let newMood: NPCMood = cpLevel > 300 ? .happy : cpLevel > 100 ? .normal : .tired
+        if mood != newMood {
+            mood = newMood
+            refreshTexture()
+        }
+
         if cpLevel > 300 {
             let pulse = SKAction.sequence([
                 SKAction.scale(to: 1.05, duration: 0.3),
                 SKAction.scale(to: 1.0, duration: 0.3)
             ])
             run(SKAction.repeatForever(pulse), withKey: "pulse")
-            // 8% の確率でエモートを表示
             if Int.random(in: 0..<12) == 0 {
-                let emotes = ["♪", "★", "♡", "!"]
+                let emotes = mood == .happy ? ["♪", "★", "♡", "✨"] : ["♪", "★", "♡", "!"]
                 showEmote(emotes.randomElement() ?? "♪")
             }
         } else {
@@ -151,12 +181,9 @@ final class NPCNode: SKSpriteNode {
 
     // MARK: - エモート吹き出し
 
-    /// NPC の頭上に小さなエモートバブルを表示する（1.5s 後にフェードアウト）
     func showEmote(_ symbol: String) {
-        // 二重表示防止
         guard childNode(withName: "emote") == nil else { return }
 
-        // 背景円
         let bg = SKShapeNode(circleOfRadius: 9)
         bg.fillColor   = .white
         bg.strokeColor = UIColor(white: 0.65, alpha: 0.9)
@@ -167,7 +194,6 @@ final class NPCNode: SKSpriteNode {
         bg.alpha       = 0
         addChild(bg)
 
-        // シンボルラベル
         let label = SKLabelNode(text: symbol)
         label.fontSize                  = 11
         label.fontName                  = "Helvetica-Bold"
@@ -175,7 +201,6 @@ final class NPCNode: SKSpriteNode {
         label.horizontalAlignmentMode   = .center
         bg.addChild(label)
 
-        // アニメーション: フェードイン → ホールド → 上昇しながらフェードアウト
         bg.run(SKAction.sequence([
             SKAction.fadeIn(withDuration: 0.15),
             SKAction.wait(forDuration: 1.2),
@@ -187,7 +212,6 @@ final class NPCNode: SKSpriteNode {
         ]))
     }
 
-    /// タップ時の吹き出し（長めのメッセージを表示する）
     func showSpeechBubble(_ text: String) {
         guard childNode(withName: "speech") == nil else { return }
 

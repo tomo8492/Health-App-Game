@@ -147,6 +147,14 @@ struct BuildingVisualConfig {
     enum RoofStyle { case flat, pitched, dome }
 }
 
+// MARK: - NPC Mood
+
+enum NPCMood: Int {
+    case tired  = 0   // CP 0-100:   疲れ顔（目の下にクマ）
+    case normal = 1   // CP 100-300: 通常
+    case happy  = 2   // CP 300+:    笑顔（^_^ + 頬紅）
+}
+
 // MARK: - Building Config Factory
 
 extension BuildingVisualConfig {
@@ -198,33 +206,33 @@ extension BuildingVisualConfig {
 // MARK: - NPC Color Palettes
 
 private enum NPCColors {
-    // 8-color palette: [髪, 肌, 目, 服上, 服下/装飾, ベルト/靴上, 靴, 影]
+    // 9-color palette: [髪, 肌, 目, 服上, 服下/装飾, ベルト/靴上, 靴, 影, 頬紅]
     static func palette(for type: NPCType) -> [UIColor] {
         switch type {
-        case .adventurer:  // 旅人: 金髪・茶の旅人服・金のマント
+        case .adventurer:
             return [UIColor(hex:"E8B84B"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
                     UIColor(hex:"C97520"), UIColor(hex:"FFD700"), UIColor(hex:"8B5E1A"),
-                    UIColor(hex:"6B3A1F"), UIColor(hex:"3A1F0A")]
-        case .citizen1:  // ハルナ: 濃茶髪・緑トラックウェア・白スニーカー
+                    UIColor(hex:"6B3A1F"), UIColor(hex:"3A1F0A"), UIColor(hex:"F0967A")]
+        case .citizen1:
             return [UIColor(hex:"5D3A1A"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
                     UIColor(hex:"34C759"), UIColor(hex:"2DA44E"), UIColor(hex:"5D4037"),
-                    UIColor(hex:"FAFAFA"), UIColor(hex:"BDBDBD")]
-        case .citizen2:  // ミツル: 白髪混じり黒髪・オレンジエプロン・ベージュ
+                    UIColor(hex:"FAFAFA"), UIColor(hex:"BDBDBD"), UIColor(hex:"F0967A")]
+        case .citizen2:
             return [UIColor(hex:"3A3A3A"), UIColor(hex:"E8C9A0"), UIColor(hex:"3A2B1F"),
                     UIColor(hex:"FF9500"), UIColor(hex:"FFB74D"), UIColor(hex:"5D4037"),
-                    UIColor(hex:"D7CCC8"), UIColor(hex:"4E342E")]
-        case .elder:  // ユキ: 黒髪束ね・紫作務衣・草履
+                    UIColor(hex:"D7CCC8"), UIColor(hex:"4E342E"), UIColor(hex:"E8A090")]
+        case .elder:
             return [UIColor(hex:"1A1A2E"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
                     UIColor(hex:"AF52DE"), UIColor(hex:"9C27B0"), UIColor(hex:"F5F5DC"),
-                    UIColor(hex:"8D6E63"), UIColor(hex:"37474F")]
-        case .child:  // リク: 茶髪・青ベレー帽・白衣+青パジャマ風
+                    UIColor(hex:"8D6E63"), UIColor(hex:"37474F"), UIColor(hex:"F0967A")]
+        case .child:
             return [UIColor(hex:"8B6914"), UIColor(hex:"FFD59A"), UIColor(hex:"3A2B1F"),
                     UIColor(hex:"007AFF"), UIColor(hex:"42A5F5"), UIColor(hex:"FAFAFA"),
-                    UIColor(hex:"1565C0"), UIColor(hex:"0D47A1")]
-        case .citizen3:  // アオイ: 栗色髪・ピンクカーディガン・濃紫スカート
+                    UIColor(hex:"1565C0"), UIColor(hex:"0D47A1"), UIColor(hex:"FFB0A0")]
+        case .citizen3:
             return [UIColor(hex:"8B5E3C"), UIColor(hex:"F5C09A"), UIColor(hex:"3A2B1F"),
                     UIColor(hex:"FF2D55"), UIColor(hex:"FF6B8A"), UIColor(hex:"5D4037"),
-                    UIColor(hex:"6A1B9A"), UIColor(hex:"4A148C")]
+                    UIColor(hex:"6A1B9A"), UIColor(hex:"4A148C"), UIColor(hex:"F0967A")]
         }
     }
 }
@@ -637,6 +645,40 @@ private enum NPCPixels {
          [0,8,0,0,0,0,8,0]]
     }
 
+    // MARK: - 表情変更（顔ピクセル書き換え）
+
+    static func applyFaceMood(_ pixels: [[Int]], mood: NPCMood, blink: Bool) -> [[Int]] {
+        var p = pixels
+        guard p.count > 3 else { return p }
+
+        // 瞬き: 目(3)→肌(2)で一瞬閉じる
+        if blink {
+            p[2] = p[2].map { $0 == 3 ? 2 : $0 }
+            return p
+        }
+
+        switch mood {
+        case .tired:
+            // 目の周囲に影色(8)でクマ表現
+            for i in 0..<p[2].count {
+                if p[2][i] == 2 && i > 0 && i < p[2].count - 1 {
+                    let hasEyeNeighbor = (i > 0 && p[2][i-1] == 3) || (i < p[2].count-1 && p[2][i+1] == 3)
+                    if hasEyeNeighbor { p[2][i] = 8 }
+                }
+            }
+        case .normal:
+            break
+        case .happy:
+            // ^_^ 顔: 目を閉じて笑顔に
+            p[2] = p[2].map { $0 == 3 ? 2 : $0 }
+            // 口元に笑みライン（目の色で）
+            if p[3].count >= 5 { p[3][3] = 3; p[3][4] = 3 }
+            // 頬紅（9=blush）
+            if p[3].count >= 6 { p[3][2] = 9; p[3][5] = 9 }
+        }
+        return p
+    }
+
     // MARK: - タイプ別ピクセル取得
 
     static func pixels(for type: NPCType, frame: Int) -> [[Int]] {
@@ -698,7 +740,7 @@ enum PixelArtRenderer {
     // NSCache: スレッドセーフ + メモリ警告時に自動解放（Dictionary より安全）
     private static let cache: NSCache<NSString, SKTexture> = {
         let c = NSCache<NSString, SKTexture>()
-        c.countLimit = 280   // テクスチャ枚数上限（建物30種×5Lv + NPC6種×4f + タイル + 装飾）
+        c.countLimit = 500   // テクスチャ枚数上限（建物 + NPC6種×4f×3mood×2blink + タイル + 装飾）
         return c
     }()
 
@@ -895,11 +937,14 @@ enum PixelArtRenderer {
 
     // MARK: - NPC Textures
 
-    static func npcTexture(type: NPCType, walkFrame: Int) -> SKTexture {
+    static func npcTexture(type: NPCType, walkFrame: Int,
+                           mood: NPCMood = .normal, blink: Bool = false) -> SKTexture {
         let f = walkFrame % 4
-        return cached("npc_\(type.rawValue)_f\(f)") {
-            assetTexture("npc_\(type.rawValue)_f\(f)")
-                ?? npcSprite(type: type, frame: f)
+        let key = "npc_\(type.rawValue)_m\(mood.rawValue)_f\(f)\(blink ? "_b" : "")"
+        return cached(key) {
+            if mood == .normal && !blink,
+               let t = assetTexture("npc_\(type.rawValue)_f\(f)") { return t }
+            return npcSprite(type: type, frame: f, mood: mood, blink: blink)
         }
     }
 
@@ -1556,11 +1601,13 @@ enum PixelArtRenderer {
     // MARK: - Private: NPC Sprite
     // ────────────────────────────────────────────────────────────────
 
-    private static func npcSprite(type: NPCType, frame: Int) -> SKTexture {
+    private static func npcSprite(type: NPCType, frame: Int,
+                                  mood: NPCMood = .normal, blink: Bool = false) -> SKTexture {
         let ps: CGFloat = 6
         let cols = 8, rows = 14
         let palette = NPCColors.palette(for: type)
-        let pixels = NPCPixels.pixels(for: type, frame: frame)
+        let pixels = NPCPixels.applyFaceMood(
+            NPCPixels.pixels(for: type, frame: frame), mood: mood, blink: blink)
         let img = UIGraphicsImageRenderer(
             size: CGSize(width: CGFloat(cols)*ps, height: CGFloat(rows)*ps)
         ).image { ctx in
