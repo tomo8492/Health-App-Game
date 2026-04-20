@@ -35,6 +35,23 @@ final class CityScene: SKScene {
     private var penaltyNodes: [BuildingNode] = []  // B029/B030 ペナルティ建物（過飲時に自動出現）
     private var currentHour: Int = 12
 
+    // MARK: - 継続アニメーション用
+    //
+    // 毎フレーム update() で駆動する対象ノード群。phase は userData["phase"] に保持し、
+    // ノードごとに位相をずらして自然な動きを作る。
+    private var waterTiles: [SKSpriteNode] = []
+    private var treeNodes:  [SKSpriteNode] = []
+    private var windmillNodes: [SKSpriteNode] = []
+    private var nightLights:   [SKSpriteNode] = []
+
+    private var lastUpdateTime: TimeInterval = 0
+    private var elapsedTime: TimeInterval = 0
+    private var lastFlickerTime: TimeInterval = 0
+    private var waterFrameTimer: TimeInterval = 0
+    private var waterFrame: Int = 0
+    private var windmillFrameTimer: TimeInterval = 0
+    private var windmillFrame: Int = 0
+
     // MARK: - カメラ
 
     private let cameraNode = SKCameraNode()
@@ -136,6 +153,13 @@ final class CityScene: SKScene {
         node.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         node.name = tileName
         mapLayer.addChild(node)
+        // 水タイルは update() で波アニメを駆動するため登録（位相はグリッド座標で分散）
+        if tile.gid == 4 {
+            node.userData = NSMutableDictionary()
+            node.userData?["phase"] = Double(tile.gridX + tile.gridY) * 0.35
+            node.userData?["baseY"] = node.position.y
+            waterTiles.append(node)
+        }
     }
 
     // MARK: - デフォルト都市レイアウト
@@ -157,6 +181,8 @@ final class CityScene: SKScene {
         placeTreesAround(map: map, cx: cx, cy: cy)
         // 街路灯・ベンチ
         placeStreetDecorations(map: map)
+        // 環境装飾（牧場・風車・市場・花壇など）
+        placeEnvironmentProps(map: map)
     }
 
     // MARK: - 街路灯・ベンチ配置（道路沿い・歩道沿い）
@@ -240,9 +266,209 @@ final class CityScene: SKScene {
                 tileWidth: CGFloat(map.tileWidth),
                 tileHeight: CGFloat(map.tileHeight)
             )
-            node.anchorPoint = CGPoint(x: 0.5, y: 0.1)
+            // アンカーを根元寄りにして回転時の軸を地面に合わせる
+            node.anchorPoint = CGPoint(x: 0.5, y: 0.08)
             node.zPosition = CGFloat(x + y) * 0.1 + 0.02
+            // そよ風アニメ用の位相
+            node.userData = NSMutableDictionary()
+            node.userData?["phase"] = Double.random(in: 0..<(.pi * 2))
+            treeNodes.append(node)
             buildingLayer.addChild(node)
+        }
+    }
+
+    // MARK: - 環境装飾配置（牧場・風車・市場スタンド・花壇・樽・木箱）
+    //
+    // 参考画像の街の生活感を再現するため、草地・歩道の空きエリアに
+    // アニメーション付きオブジェクトを配置する。
+    private func placeEnvironmentProps(map: ParsedMap) {
+        let cx = map.width / 2
+        let cy = map.height / 2
+
+        // 1) 風車（草地外周に 1 基）
+        placeWindmill(map: map, cx: cx, cy: cy)
+        // 2) 牧場（草地連続ブロックに柵 + 牛）
+        placePasture(map: map, cx: cx, cy: cy)
+        // 3) 市場スタンド（広場=cobblestone相当、なければ歩道）
+        placeMarketStalls(map: map, cx: cx, cy: cy)
+        // 4) 花壇 + 樽 + 木箱（歩道沿いの空きスロット）
+        placeMiscProps(map: map)
+    }
+
+    private func placeWindmill(map: ParsedMap, cx: Int, cy: Int) {
+        // マップ左上側の草地に 1 基配置
+        let candidates: [(Int, Int)] = [
+            (cx - 6, cy - 6), (cx + 6, cy - 6), (cx - 7, cy + 3), (cx + 7, cy + 4)
+        ]
+        for (x, y) in candidates {
+            guard x >= 0 && x < map.width && y >= 0 && y < map.height else { continue }
+            let tile = map.tiles[y][x]
+            guard tile.gid == 1 else { continue }  // 草地のみ
+            let tex = PixelArtRenderer.windmillTexture(bladeFrame: 0)
+            let node = SKSpriteNode(texture: tex, size: CGSize(width: 54, height: 96))
+            node.position = TiledMapParser.isoToScreen(
+                x: x, y: y,
+                tileWidth: CGFloat(map.tileWidth),
+                tileHeight: CGFloat(map.tileHeight)
+            )
+            node.anchorPoint = CGPoint(x: 0.5, y: 0.08)
+            node.zPosition = CGFloat(x + y) * 0.1 + 0.04
+            node.name = "windmill"
+            windmillNodes.append(node)
+            buildingLayer.addChild(node)
+            break
+        }
+    }
+
+    private func placePasture(map: ParsedMap, cx: Int, cy: Int) {
+        // 右下の草地に 3×2 の牧場エリアを探す
+        let startCandidates: [(Int, Int)] = [
+            (cx + 4, cy + 4), (cx - 6, cy + 5), (cx + 5, cy - 5)
+        ]
+        for (sx, sy) in startCandidates {
+            guard sx >= 0 && sx + 2 < map.width &&
+                  sy >= 0 && sy + 1 < map.height else { continue }
+            // 全て草地か
+            var allGrass = true
+            for dy in 0...1 {
+                for dx in 0...2 {
+                    let t = map.tiles[sy + dy][sx + dx]
+                    if t.gid != 1 { allGrass = false }
+                }
+            }
+            guard allGrass else { continue }
+            buildPasture(map: map, startX: sx, startY: sy)
+            return
+        }
+    }
+
+    private func buildPasture(map: ParsedMap, startX sx: Int, startY sy: Int) {
+        // 柵で 3×2 を囲う（周囲 10 マス分）
+        let fenceTex0 = PixelArtRenderer.fenceTexture(variant: 0)
+        let fenceTex1 = PixelArtRenderer.fenceTexture(variant: 1)
+        let perimeter: [(Int, Int, Int)] = [  // (dx, dy, variant)
+            (-1, -1, 1), (0, -1, 0), (1, -1, 0), (2, -1, 0), (3, -1, 1),
+            (-1,  0, 0), (3,  0, 0),
+            (-1,  1, 0), (3,  1, 0),
+            (-1,  2, 1), (0,  2, 0), (1,  2, 0), (2,  2, 0), (3,  2, 1)
+        ]
+        for (dx, dy, variant) in perimeter {
+            let x = sx + dx, y = sy + dy
+            guard x >= 0 && x < map.width && y >= 0 && y < map.height else { continue }
+            let tex = variant == 0 ? fenceTex0 : fenceTex1
+            let fence = SKSpriteNode(texture: tex, size: CGSize(width: 28, height: 22))
+            fence.position = TiledMapParser.isoToScreen(
+                x: x, y: y,
+                tileWidth: CGFloat(map.tileWidth),
+                tileHeight: CGFloat(map.tileHeight)
+            )
+            fence.anchorPoint = CGPoint(x: 0.5, y: 0.1)
+            fence.zPosition = CGFloat(x + y) * 0.1 + 0.01
+            fence.name = "fence"
+            buildingLayer.addChild(fence)
+        }
+        // 牛を 2 頭（2 フレーム切り替え）
+        let cowPositions: [(Int, Int)] = [(sx + 1, sy), (sx + 1, sy + 1)]
+        for (i, (x, y)) in cowPositions.enumerated() {
+            let cow = SKSpriteNode(
+                texture: PixelArtRenderer.cowTexture(frame: 0),
+                size: CGSize(width: 40, height: 30)
+            )
+            cow.position = TiledMapParser.isoToScreen(
+                x: x, y: y,
+                tileWidth: CGFloat(map.tileWidth),
+                tileHeight: CGFloat(map.tileHeight)
+            )
+            cow.anchorPoint = CGPoint(x: 0.5, y: 0.2)
+            cow.zPosition = CGFloat(x + y) * 0.1 + 0.03
+            cow.name = "cow"
+            // chew アニメ: フレーム 0/1 を 2.5 秒周期で切り替え（個体ごとに位相ずらし）
+            let tex0 = PixelArtRenderer.cowTexture(frame: 0)
+            let tex1 = PixelArtRenderer.cowTexture(frame: 1)
+            let cycle = SKAction.sequence([
+                SKAction.setTexture(tex0, resize: false),
+                SKAction.wait(forDuration: 1.8),
+                SKAction.setTexture(tex1, resize: false),
+                SKAction.wait(forDuration: 0.7)
+            ])
+            let initialDelay = SKAction.wait(forDuration: Double(i) * 1.2)
+            cow.run(SKAction.sequence([initialDelay, SKAction.repeatForever(cycle)]))
+            buildingLayer.addChild(cow)
+        }
+    }
+
+    private func placeMarketStalls(map: ParsedMap, cx: Int, cy: Int) {
+        // 市庁舎周辺の歩道に 3 種の市場スタンドを配置
+        let stallPositions: [(Int, Int, Int)] = [  // (x, y, variant)
+            (cx - 2, cy + 1, 0),   // 野菜
+            (cx + 2, cy + 1, 1),   // 魚
+            (cx - 2, cy - 2, 2)    // パン
+        ]
+        for (x, y, variant) in stallPositions {
+            guard x >= 0 && x < map.width && y >= 0 && y < map.height else { continue }
+            let tile = map.tiles[y][x]
+            guard tile.gid == 3 || tile.gid == 1 else { continue }  // 歩道または草
+            let tex = PixelArtRenderer.marketStallTexture(variant: variant)
+            let stall = SKSpriteNode(texture: tex, size: CGSize(width: 36, height: 42))
+            stall.position = TiledMapParser.isoToScreen(
+                x: x, y: y,
+                tileWidth: CGFloat(map.tileWidth),
+                tileHeight: CGFloat(map.tileHeight)
+            )
+            stall.anchorPoint = CGPoint(x: 0.5, y: 0.1)
+            stall.zPosition = CGFloat(x + y) * 0.1 + 0.03
+            stall.name = "market"
+            buildingLayer.addChild(stall)
+        }
+    }
+
+    private func placeMiscProps(map: ParsedMap) {
+        var propCount = 0
+        for row in 0..<map.height {
+            for col in 0..<map.width {
+                guard propCount < 12 else { return }
+                let tile = map.tiles[row][col]
+                // 歩道タイルの特定位置に花壇 / 樽 / 木箱を分散配置
+                let key = (col + row * 3) % 20
+                let pos = TiledMapParser.isoToScreen(
+                    x: col, y: row,
+                    tileWidth: CGFloat(map.tileWidth),
+                    tileHeight: CGFloat(map.tileHeight)
+                )
+                let z = CGFloat(col + row) * 0.1 + 0.025
+                if tile.gid == 3 && key == 5 {
+                    let tex = PixelArtRenderer.flowerBedTexture(variant: (col + row) % 2)
+                    let node = SKSpriteNode(texture: tex, size: CGSize(width: 32, height: 20))
+                    node.position = CGPoint(x: pos.x, y: pos.y - 2)
+                    node.anchorPoint = CGPoint(x: 0.5, y: 0.1)
+                    node.zPosition = z
+                    node.name = "flowerbed"
+                    buildingLayer.addChild(node)
+                    propCount += 1
+                } else if tile.gid == 3 && key == 11 {
+                    let node = SKSpriteNode(
+                        texture: PixelArtRenderer.barrelTexture(),
+                        size: CGSize(width: 18, height: 24)
+                    )
+                    node.position = CGPoint(x: pos.x + 4, y: pos.y)
+                    node.anchorPoint = CGPoint(x: 0.5, y: 0.1)
+                    node.zPosition = z
+                    node.name = "barrel"
+                    buildingLayer.addChild(node)
+                    propCount += 1
+                } else if tile.gid == 3 && key == 17 {
+                    let node = SKSpriteNode(
+                        texture: PixelArtRenderer.crateTexture(),
+                        size: CGSize(width: 22, height: 20)
+                    )
+                    node.position = CGPoint(x: pos.x - 4, y: pos.y)
+                    node.anchorPoint = CGPoint(x: 0.5, y: 0.1)
+                    node.zPosition = z
+                    node.name = "crate"
+                    buildingLayer.addChild(node)
+                    propCount += 1
+                }
+            }
         }
     }
 
@@ -870,10 +1096,11 @@ final class CityScene: SKScene {
     /// 建物に夜のウィンドウライトを追加（昼夜サイクルで点灯/消灯する）
     func addNightLights(for building: BuildingNode) {
         // 既存ライト除去（再構築用）
-        nightLightLayer.children
+        let existing = nightLightLayer.children
             .compactMap { $0 as? SKSpriteNode }
             .filter { $0.name == "lights_\(building.gridX)_\(building.gridY)" }
-            .forEach { $0.removeFromParent() }
+        existing.forEach { $0.removeFromParent() }
+        nightLights.removeAll { n in existing.contains(where: { $0 === n }) }
 
         let tex = SpriteEffects.windowLightTexture()
         // ペナルティ建物は窓ライト無し（廃墟感を強調）
@@ -903,6 +1130,7 @@ final class CityScene: SKScene {
                 light.colorBlendFactor = 0.5
             }
             nightLightLayer.addChild(light)
+            nightLights.append(light)
         }
     }
 
@@ -931,6 +1159,11 @@ final class CityScene: SKScene {
         nightLightLayer.removeAllChildren()
         penaltyNodes.removeAll()
         buildings.removeAll()
+        // 継続アニメーション対象ノード配列もリセット
+        waterTiles.removeAll()
+        treeNodes.removeAll()
+        windmillNodes.removeAll()
+        nightLights.removeAll()
         let map = generateCityMap(size: mapSize.rawValue)
         parsedMap = map
         renderCityMap(map)
@@ -1060,6 +1293,84 @@ final class CityScene: SKScene {
         ]))
         run(timer, withKey: "timeUpdate")
         updateTimeOfDay(Calendar.current.component(.hour, from: Date()))
+    }
+
+    // MARK: - 毎フレーム update（連続アニメーション駆動）
+    //
+    // 水面の波・樹木のそよ風・風車の回転・夜の窓ちらつきを
+    // SKAction では表現しづらい周期性で駆動する。
+    // delta time に上限（0.1s）を設けて、バックグラウンド復帰時の大きな跳ねを抑制する。
+
+    override func update(_ currentTime: TimeInterval) {
+        super.update(currentTime)
+        if lastUpdateTime == 0 { lastUpdateTime = currentTime }
+        var dt = currentTime - lastUpdateTime
+        lastUpdateTime = currentTime
+        if dt > 0.1 { dt = 0.1 }
+        elapsedTime += dt
+
+        updateWaterAnimation(dt: dt)
+        updateTreeSway()
+        updateWindmill(dt: dt)
+        updateWindowFlicker()
+    }
+
+    private func updateWaterAnimation(dt: TimeInterval) {
+        guard !waterTiles.isEmpty else { return }
+        // タイルテクスチャ切り替え（0.6秒ごとに 3 フレーム循環）
+        waterFrameTimer += dt
+        if waterFrameTimer >= 0.6 {
+            waterFrameTimer = 0
+            waterFrame = (waterFrame + 1) % 3
+            let tex = PixelArtRenderer.waterTile(frame: waterFrame)
+            for tile in waterTiles { tile.texture = tex }
+        }
+        // 各タイルの Y を sin 波で微小に揺らす（±1px）
+        for tile in waterTiles {
+            let phase = (tile.userData?["phase"] as? Double) ?? 0
+            let baseY = (tile.userData?["baseY"] as? CGFloat) ?? tile.position.y
+            let offset = CGFloat(sin((elapsedTime + phase) * 1.8)) * 1.0
+            tile.position = CGPoint(x: tile.position.x, y: baseY + offset)
+        }
+    }
+
+    private func updateTreeSway() {
+        guard !treeNodes.isEmpty else { return }
+        for tree in treeNodes {
+            let phase = (tree.userData?["phase"] as? Double) ?? 0
+            tree.zRotation = CGFloat(sin((elapsedTime + phase) * 1.6)) * 0.035
+        }
+    }
+
+    private func updateWindmill(dt: TimeInterval) {
+        guard !windmillNodes.isEmpty else { return }
+        // 羽根のアニメを 0.18 秒ごとに 4 フレーム循環
+        windmillFrameTimer += dt
+        if windmillFrameTimer >= 0.18 {
+            windmillFrameTimer = 0
+            windmillFrame = (windmillFrame + 1) % 4
+            let tex = PixelArtRenderer.windmillTexture(bladeFrame: windmillFrame)
+            for mill in windmillNodes { mill.texture = tex }
+        }
+    }
+
+    private func updateWindowFlicker() {
+        // 夜間のみ駆動: nightLightLayer の親 alpha が低ければスキップ
+        guard nightLightLayer.alpha > 0.5, !nightLights.isEmpty else { return }
+        // 2 秒に 1 回、ランダムに 1-2 個の窓を短くパルス
+        if elapsedTime - lastFlickerTime >= 2.0 {
+            lastFlickerTime = elapsedTime
+            let count = Int.random(in: 1...2)
+            for _ in 0..<count {
+                guard let light = nightLights.randomElement(),
+                      light.action(forKey: "flickerPulse") == nil else { continue }
+                let pulse = SKAction.sequence([
+                    SKAction.fadeAlpha(to: 0.35, duration: 0.08),
+                    SKAction.fadeAlpha(to: 1.0,  duration: 0.22)
+                ])
+                light.run(pulse, withKey: "flickerPulse")
+            }
+        }
     }
 
     // MARK: - プロシージャルマップ生成

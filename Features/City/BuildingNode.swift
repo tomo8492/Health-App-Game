@@ -153,16 +153,38 @@ final class BuildingNode: SKSpriteNode {
     // MARK: - アイドルアニメーション
 
     func playIdleAnimation() {
-        // B025（市庁舎）は旗揺れアニメーション、それ以外は上下ゆらぎ
+        // 旗アニメ対象（B001/B025）はフレームアニメを優先
         if let frames = PixelArtRenderer.buildingAnimationTextures(id: buildingId, level: level) {
             let anim = SKAction.animate(with: frames, timePerFrame: 0.35, resize: false, restore: false)
             run(SKAction.repeatForever(anim), withKey: "idle")
         } else {
-            let bobUp   = SKAction.moveBy(x: 0, y: 1.5, duration: 1.4)
-            let bobDown = SKAction.moveBy(x: 0, y: -1.5, duration: 1.4)
+            // 建物カテゴリ別にアイドルの雰囲気を変える（参考画像の街の賑わい再現）
+            let (amp, period): (CGFloat, TimeInterval)
+            switch buildingId {
+            case "B007", "B008", "B009", "B010", "B011", "B012":
+                // 食事軸: 静かな上下ゆらぎ（煙エフェクトが主役）
+                (amp, period) = (0.8, 1.8)
+            case "B029", "B030":
+                // ペナルティ: 不規則な揺れ（不安定感）
+                (amp, period) = (2.2, 1.0)
+            default:
+                (amp, period) = (1.5, 1.4)
+            }
+            let bobUp   = SKAction.moveBy(x: 0, y: amp, duration: period)
+            let bobDown = SKAction.moveBy(x: 0, y: -amp, duration: period)
             bobUp.timingMode   = .easeInEaseOut
             bobDown.timingMode = .easeInEaseOut
             run(SKAction.repeatForever(SKAction.sequence([bobUp, bobDown])), withKey: "idle")
+        }
+
+        // 煙突の煙（該当建物のみ）
+        if PixelArtRenderer.buildingHasChimney(id: buildingId) {
+            let offset = PixelArtRenderer.buildingChimneyOffset(id: buildingId, level: level)
+            // 居酒屋（B029）は少しオレンジがかった煙（厨房の油煙）
+            let tint: UIColor? = buildingId == "B029"
+                ? UIColor(red: 0.95, green: 0.85, blue: 0.75, alpha: 1)
+                : nil
+            SpriteEffects.attachSmoke(to: self, offset: offset, tint: tint)
         }
     }
 

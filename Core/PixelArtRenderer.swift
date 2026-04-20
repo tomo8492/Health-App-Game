@@ -785,9 +785,19 @@ enum PixelArtRenderer {
         }
     }
     static func waterTile() -> SKTexture {
-        cached("water") {
-            assetTexture("tile_water") ??
-            isoTile(top: UIColor(hex:"5BB8FF"), shadow: UIColor(hex:"2A7AC0"), grass: false)
+        waterTile(frame: 0)
+    }
+
+    /// 3 フレーム分の波アニメーション付き水タイル。
+    /// frame 0-2 のサイクルで波の白ハイライト位置が変化する。
+    /// Asset Catalog に tile_water_f0..f2 があればそちらを優先、無ければ tile_water、
+    /// それも無ければプロシージャル（isoTile）に自動フォールバックする。
+    static func waterTile(frame: Int) -> SKTexture {
+        let f = ((frame % 3) + 3) % 3
+        return cached("water_f\(f)") {
+            if let t = assetTexture("tile_water_f\(f)") { return t }
+            if f == 0, let base = assetTexture("tile_water") { return base }
+            return isoWaterTile(frame: f)
         }
     }
     static func sandTile() -> SKTexture {
@@ -826,23 +836,48 @@ enum PixelArtRenderer {
 
     // MARK: - Building Animation (flag wave for B025)
 
-    /// B025（市庁舎）など旗を持つ建物の 4 フレームアニメーションテクスチャを返す
+    /// 旗を持つ建物の 4 フレームアニメーションテクスチャを返す（対象: B001, B025）
     /// それ以外の建物は nil
-    /// Asset Catalog に bld_B025_lv1_f0〜f3 があれば画像を使用、無ければプロシージャル生成
+    /// Asset Catalog に bld_{id}_lv{level}_f0〜f3 があれば画像を使用、無ければプロシージャル生成
     static func buildingAnimationTextures(id: String, level: Int) -> [SKTexture]? {
-        guard id == "B025" else { return nil }
+        guard ["B001", "B025"].contains(id) else { return nil }
         // 4 フレーム全てが Asset Catalog に存在するかチェック
         let assetFrames: [SKTexture?] = (0..<4).map { assetTexture("bld_\(id)_lv\(level)_f\($0)") }
         if assetFrames.allSatisfy({ $0 != nil }) {
             return assetFrames.compactMap { $0 }
         }
-        // 一部欠けていればプロシージャル生成
+        // 一部欠けていればプロシージャル生成（旗位置オフセット付き）
         return (0..<4).map { frame in
             cached("bld_\(id)_lv\(level)_f\(frame)") {
                 let cfg = BuildingVisualConfig.make(id: id, level: level)
                 return isoBuilding(config: cfg, id: id, level: level, flagFrame: frame)
             }
         }
+    }
+
+    /// 煙突を持つ建物かどうか（煙エフェクトの対象判定）
+    /// 参考画像に煙突が見える建物タイプをここで一元管理する
+    static func buildingHasChimney(id: String) -> Bool {
+        switch id {
+        // 食事軸: カフェ・レストラン・ベーカリー（オーブンの煙）
+        case "B007", "B008", "B009", "B010", "B011", "B012": return true
+        // 生活軸: 家屋系（暖炉の煙）
+        case "B019", "B026", "B028": return true
+        // ペナルティ: 居酒屋（厨房の煙）
+        case "B029": return true
+        default: return false
+        }
+    }
+
+    /// 煙突のスプライト内相対位置（中心を 0,0 とした座標 / UIKit 座標系の反転前）
+    /// 建物ノード基準で addChild する際のオフセットとして使う
+    /// - Returns: (x, y) 単位は SpriteKit のポイント。y は建物の上方向が正。
+    static func buildingChimneyOffset(id: String, level: Int) -> CGPoint {
+        let size = buildingSpriteSize(id: id, level: level)
+        // 基本位置: 屋根の右端やや上
+        let baseX: CGFloat = 8
+        let baseY: CGFloat = size.height * 0.42
+        return CGPoint(x: baseX, y: baseY)
     }
 
     /// アセット画像が存在する場合はそのピクセルサイズを返す（なければ nil）
@@ -870,10 +905,16 @@ enum PixelArtRenderer {
     // MARK: - NPC Textures
 
     static func npcTexture(type: NPCType, walkFrame: Int) -> SKTexture {
-        let f = walkFrame % 4
-        return cached("npc_\(type.rawValue)_f\(f)") {
-            assetTexture("npc_\(type.rawValue)_f\(f)")
-                ?? npcSprite(type: type, frame: f)
+        // 8 フレーム化：Asset Catalog に f4〜f7 があればそれを使い、
+        // 無ければ対応する 0-3 のテクスチャを返すフォールバック。
+        let raw = ((walkFrame % 8) + 8) % 8
+        let cacheKey = "npc_\(type.rawValue)_f\(raw)"
+        return cached(cacheKey) {
+            if let t = assetTexture("npc_\(type.rawValue)_f\(raw)") { return t }
+            // fallback: 4-7 は 0-3 に折り返す
+            let fallback = raw % 4
+            if raw >= 4, let t2 = assetTexture("npc_\(type.rawValue)_f\(fallback)") { return t2 }
+            return npcSprite(type: type, frame: fallback)
         }
     }
 
@@ -1102,6 +1143,376 @@ enum PixelArtRenderer {
         p.addLine(to: CGPoint(x: w/2, y: h))
         p.addLine(to: CGPoint(x: 0, y: h/2))
         p.close(); return p
+    }
+
+    /// 3 フレームの波パターンを描いた水タイル（frame 0/1/2）
+    /// 白いキラメキ点の位置と青の明暗が微妙に変化する。
+    private static func isoWaterTile(frame: Int) -> SKTexture {
+        let w = tileW, h = tileH
+        let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { ctx in
+            let cg = ctx.cgContext
+            let diamond = diamondPath(w: w, h: h)
+            // ベース水色
+            UIColor(hex: "5BB8FF").setFill(); diamond.fill()
+            // 影（左半分）
+            let leftHalf = UIBezierPath()
+            leftHalf.move(to: CGPoint(x: w/2, y: h))
+            leftHalf.addLine(to: CGPoint(x: 0, y: h/2))
+            leftHalf.addLine(to: CGPoint(x: w/2, y: 0))
+            leftHalf.close()
+            UIColor(hex: "2A7AC0").withAlphaComponent(0.22).setFill(); leftHalf.fill()
+
+            // 波の横ライン（frame で上下シフト）
+            cg.setFillColor(UIColor(hex: "9AD5FF").withAlphaComponent(0.7).cgColor)
+            let yOffsets: [CGFloat] = [0, 2, -2]
+            let yOff = yOffsets[frame % 3]
+            let waves: [(CGFloat, CGFloat, CGFloat)] = [
+                (18, h/2 - 4 + yOff, 8),
+                (38, h/2 + 3 + yOff, 10),
+                (12, h/2 + 8 + yOff, 6)
+            ]
+            for (x, y, len) in waves {
+                cg.fill(CGRect(x: x, y: y, width: len, height: 1))
+            }
+            // キラメキ点（frame ごとに位置変化）
+            cg.setFillColor(UIColor.white.withAlphaComponent(0.9).cgColor)
+            let sparkles: [[(CGFloat, CGFloat)]] = [
+                [(26, 10), (42, 18)],
+                [(18, 14), (48, 10), (32, 20)],
+                [(36, 8), (22, 22)]
+            ]
+            for (sx, sy) in sparkles[frame % 3] {
+                cg.fill(CGRect(x: sx, y: sy, width: 2, height: 1))
+            }
+            // アウトライン
+            UIColor.black.withAlphaComponent(0.14).setStroke()
+            diamond.lineWidth = 0.5; diamond.stroke()
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // MARK: - Environment Props (牧場・風車・市場・花壇・樽)
+    // ────────────────────────────────────────────────────────────────
+
+    /// 牛（ホルスタイン風白黒）— 2 フレーム（idle / chew）
+    static func cowTexture(frame: Int = 0) -> SKTexture {
+        let f = ((frame % 2) + 2) % 2
+        return cached("cow_f\(f)") {
+            if let t = assetTexture("deco_cow_f\(f)") { return t }
+            return cowSprite(frame: f)
+        }
+    }
+
+    private static func cowSprite(frame: Int) -> SKTexture {
+        // 論理 16×12 を 2px ズーム → 32×24
+        let ps: CGFloat = 2
+        let cols = 16, rows = 12
+        let body = UIColor.white
+        let spot = UIColor(hex: "1A1A1A")
+        let snout = UIColor(hex: "F5C09A")
+        let hoof = UIColor(hex: "2A1A0A")
+        let udder = UIColor(hex: "FFB3B3")
+        // ピクセルマップ: 0=透明, 1=白, 2=黒, 3=鼻, 4=蹄, 5=乳
+        // frame 1 は頭がわずかに下がる
+        let base: [[Int]] = [
+            [0,0,2,2,0,0,0,0,0,0,0,0,1,1,0,0],
+            [0,2,1,1,2,0,0,0,1,1,1,1,1,2,0,0],
+            [0,2,1,3,3,2,1,1,1,2,2,1,1,2,2,0],
+            [0,0,2,3,3,1,1,2,2,2,1,1,1,1,0,0],
+            [0,0,0,2,2,1,1,1,1,1,1,1,1,2,0,0],
+            [0,0,0,1,1,1,1,1,2,2,1,1,2,2,0,0],
+            [0,0,0,1,1,1,1,2,2,1,1,1,2,0,0,0],
+            [0,0,0,1,1,1,1,1,1,1,5,1,1,0,0,0],
+            [0,0,0,4,0,4,0,0,0,0,4,0,4,0,0,0],
+            [0,0,0,4,0,4,0,0,0,0,4,0,4,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        ]
+        let size = CGSize(width: CGFloat(cols) * ps, height: CGFloat(rows) * ps)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            for r in 0..<rows {
+                for c in 0..<cols {
+                    let v = base[r][c]
+                    guard v > 0 else { continue }
+                    let col: UIColor
+                    switch v { case 1: col = body; case 2: col = spot; case 3: col = snout; case 4: col = hoof; case 5: col = udder; default: col = body }
+                    let yShift: CGFloat = (frame == 1 && r <= 3) ? ps : 0
+                    cg.setFillColor(col.cgColor)
+                    cg.fill(CGRect(x: CGFloat(c) * ps, y: CGFloat(r) * ps + yShift, width: ps, height: ps))
+                }
+            }
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    /// 木の柵（0 = 横一枚, 1 = 角パーツ）
+    static func fenceTexture(variant: Int = 0) -> SKTexture {
+        let v = ((variant % 2) + 2) % 2
+        return cached("fence_v\(v)") {
+            if let t = assetTexture("deco_fence_\(v)") { return t }
+            return fenceSprite(variant: v)
+        }
+    }
+
+    private static func fenceSprite(variant: Int) -> SKTexture {
+        let size = CGSize(width: 24, height: 18)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            let wood = UIColor(hex: "A8753A")
+            let woodDark = UIColor(hex: "6B4822")
+            cg.setFillColor(wood.cgColor)
+            if variant == 0 {
+                // 2 本の縦支柱
+                cg.fill(CGRect(x: 4, y: 4, width: 3, height: 14))
+                cg.fill(CGRect(x: 17, y: 4, width: 3, height: 14))
+                // 2 本の横ビーム
+                cg.fill(CGRect(x: 2, y: 7, width: 20, height: 2))
+                cg.fill(CGRect(x: 2, y: 13, width: 20, height: 2))
+            } else {
+                // 角（3 支柱 + 横短め）
+                cg.fill(CGRect(x: 4, y: 4, width: 3, height: 14))
+                cg.fill(CGRect(x: 11, y: 2, width: 3, height: 16))
+                cg.fill(CGRect(x: 17, y: 4, width: 3, height: 14))
+                cg.fill(CGRect(x: 2, y: 7, width: 12, height: 2))
+                cg.fill(CGRect(x: 2, y: 13, width: 12, height: 2))
+            }
+            // シェーディング
+            cg.setFillColor(woodDark.cgColor)
+            cg.fill(CGRect(x: 4, y: 16, width: 3, height: 2))
+            cg.fill(CGRect(x: 17, y: 16, width: 3, height: 2))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    /// 風車（本体 + 羽）を 4 フレームで回転させる
+    static func windmillTexture(bladeFrame: Int = 0) -> SKTexture {
+        let f = ((bladeFrame % 4) + 4) % 4
+        return cached("windmill_f\(f)") {
+            if let t = assetTexture("deco_windmill_f\(f)") { return t }
+            return windmillSprite(bladeFrame: f)
+        }
+    }
+
+    private static func windmillSprite(bladeFrame: Int) -> SKTexture {
+        let size = CGSize(width: 36, height: 64)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            // 本体（石造りタワー）
+            cg.setFillColor(UIColor(hex: "D7CCC8").cgColor)
+            cg.fill(CGRect(x: 12, y: 26, width: 12, height: 32))
+            cg.setFillColor(UIColor(hex: "A1887F").cgColor)
+            cg.fill(CGRect(x: 11, y: 26, width: 2, height: 32))
+            // 屋根（円錐）
+            cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
+            cg.fill(CGRect(x: 10, y: 22, width: 16, height: 6))
+            cg.fill(CGRect(x: 13, y: 18, width: 10, height: 4))
+            // 窓
+            cg.setFillColor(UIColor(hex: "FFF176").cgColor)
+            cg.fill(CGRect(x: 16, y: 38, width: 4, height: 5))
+            // ドア
+            cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+            cg.fill(CGRect(x: 15, y: 52, width: 6, height: 6))
+            // 羽根（4枚） — frame で角度シフト（0°, 22.5°, 45°, 67.5° に近似した 4 パターン）
+            cg.saveGState()
+            cg.translateBy(x: 18, y: 26)
+            let angle = CGFloat.pi / 2 * CGFloat(bladeFrame) / 4
+            cg.rotate(by: angle)
+            cg.setFillColor(UIColor(hex: "FAFAFA").cgColor)
+            for i in 0..<4 {
+                cg.saveGState()
+                cg.rotate(by: CGFloat.pi / 2 * CGFloat(i))
+                cg.fill(CGRect(x: -1, y: -14, width: 3, height: 14))
+                cg.fill(CGRect(x: 2, y: -12, width: 4, height: 10))
+                cg.restoreGState()
+            }
+            // ハブ
+            cg.setFillColor(UIColor(hex: "424242").cgColor)
+            cg.fillEllipse(in: CGRect(x: -2, y: -2, width: 4, height: 4))
+            cg.restoreGState()
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    /// 市場スタンド（0=野菜, 1=魚, 2=パン）
+    static func marketStallTexture(variant: Int = 0) -> SKTexture {
+        let v = ((variant % 3) + 3) % 3
+        return cached("market_v\(v)") {
+            if let t = assetTexture("deco_market_\(v)") { return t }
+            return marketStallSprite(variant: v)
+        }
+    }
+
+    private static func marketStallSprite(variant: Int) -> SKTexture {
+        let size = CGSize(width: 28, height: 32)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            // 屋根（ストライプテント）
+            let stripe1: UIColor
+            let stripe2: UIColor
+            let goodsColors: [UIColor]
+            switch variant {
+            case 1: // 魚屋（青白ストライプ / 魚）
+                stripe1 = UIColor(hex: "1976D2"); stripe2 = UIColor(hex: "FAFAFA")
+                goodsColors = [UIColor(hex: "B0BEC5"), UIColor(hex: "78909C")]
+            case 2: // パン屋（茶黄ストライプ / パン）
+                stripe1 = UIColor(hex: "A1887F"); stripe2 = UIColor(hex: "FFE082")
+                goodsColors = [UIColor(hex: "D7A36A"), UIColor(hex: "8D6E63")]
+            default: // 野菜屋（赤白 / 野菜）
+                stripe1 = UIColor(hex: "E53935"); stripe2 = UIColor(hex: "FAFAFA")
+                goodsColors = [UIColor(hex: "E57373"), UIColor(hex: "81C784"), UIColor(hex: "FFEE58")]
+            }
+            // 屋根（ストライプ）
+            for i in 0..<7 {
+                cg.setFillColor(i % 2 == 0 ? stripe1.cgColor : stripe2.cgColor)
+                cg.fill(CGRect(x: 2 + CGFloat(i) * 3.4, y: 4, width: 4, height: 6))
+            }
+            // 屋根影
+            cg.setFillColor(UIColor.black.withAlphaComponent(0.22).cgColor)
+            cg.fill(CGRect(x: 2, y: 10, width: 24, height: 2))
+            // ポール
+            cg.setFillColor(UIColor(hex: "6B4822").cgColor)
+            cg.fill(CGRect(x: 3, y: 10, width: 2, height: 14))
+            cg.fill(CGRect(x: 23, y: 10, width: 2, height: 14))
+            // カウンター
+            cg.setFillColor(UIColor(hex: "A8753A").cgColor)
+            cg.fill(CGRect(x: 2, y: 20, width: 24, height: 4))
+            cg.setFillColor(UIColor(hex: "6B4822").cgColor)
+            cg.fill(CGRect(x: 2, y: 24, width: 24, height: 2))
+            // 商品（3 列）
+            for (i, col) in goodsColors.enumerated() {
+                cg.setFillColor(col.cgColor)
+                let x = 5 + CGFloat(i) * 6
+                cg.fill(CGRect(x: x, y: 16, width: 4, height: 4))
+            }
+            // 足
+            cg.setFillColor(UIColor(hex: "4E342E").cgColor)
+            cg.fill(CGRect(x: 3, y: 26, width: 2, height: 4))
+            cg.fill(CGRect(x: 23, y: 26, width: 2, height: 4))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    /// 花壇（0=赤系, 1=紫系）
+    static func flowerBedTexture(variant: Int = 0) -> SKTexture {
+        let v = ((variant % 2) + 2) % 2
+        return cached("flowerbed_v\(v)") {
+            if let t = assetTexture("deco_flowerbed_\(v)") { return t }
+            return flowerBedSprite(variant: v)
+        }
+    }
+
+    private static func flowerBedSprite(variant: Int) -> SKTexture {
+        let size = CGSize(width: 28, height: 16)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            // 木枠
+            cg.setFillColor(UIColor(hex: "8D6E63").cgColor)
+            cg.fill(CGRect(x: 1, y: 4, width: 26, height: 10))
+            cg.setFillColor(UIColor(hex: "5D4037").cgColor)
+            cg.fill(CGRect(x: 1, y: 12, width: 26, height: 2))
+            // 土
+            cg.setFillColor(UIColor(hex: "4E342E").cgColor)
+            cg.fill(CGRect(x: 3, y: 6, width: 22, height: 6))
+            // 葉
+            cg.setFillColor(UIColor(hex: "4CAF50").cgColor)
+            for x in stride(from: CGFloat(4), to: 24, by: 3) {
+                cg.fill(CGRect(x: x, y: 5, width: 2, height: 2))
+            }
+            // 花（バリアント別）
+            let flowerColors: [UIColor]
+            if variant == 0 {
+                flowerColors = [UIColor(hex: "F44336"), UIColor(hex: "FF9800"), UIColor(hex: "FFEB3B")]
+            } else {
+                flowerColors = [UIColor(hex: "AB47BC"), UIColor(hex: "EC407A"), UIColor(hex: "7E57C2")]
+            }
+            var fi = 0
+            for x in stride(from: CGFloat(4), to: 24, by: 3) {
+                cg.setFillColor(flowerColors[fi % flowerColors.count].cgColor)
+                cg.fill(CGRect(x: x, y: 3, width: 2, height: 2))
+                cg.setFillColor(UIColor(hex: "FFEB3B").cgColor)
+                cg.fill(CGRect(x: x, y: 3, width: 1, height: 1))
+                fi += 1
+            }
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    /// 樽
+    static func barrelTexture() -> SKTexture {
+        cached("barrel") {
+            if let t = assetTexture("deco_barrel") { return t }
+            return barrelSprite()
+        }
+    }
+
+    private static func barrelSprite() -> SKTexture {
+        let size = CGSize(width: 16, height: 20)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            // 胴体（薄茶）
+            cg.setFillColor(UIColor(hex: "A8753A").cgColor)
+            cg.fill(CGRect(x: 2, y: 3, width: 12, height: 14))
+            // 影
+            cg.setFillColor(UIColor(hex: "6B4822").cgColor)
+            cg.fill(CGRect(x: 2, y: 3, width: 2, height: 14))
+            // 鉄輪
+            cg.setFillColor(UIColor(hex: "424242").cgColor)
+            cg.fill(CGRect(x: 1, y: 5, width: 14, height: 1))
+            cg.fill(CGRect(x: 1, y: 14, width: 14, height: 1))
+            cg.fill(CGRect(x: 2, y: 2, width: 12, height: 2))
+            cg.fill(CGRect(x: 2, y: 16, width: 12, height: 2))
+            // 天面
+            cg.setFillColor(UIColor(hex: "D7A36A").cgColor)
+            cg.fill(CGRect(x: 4, y: 2, width: 8, height: 1))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    /// 木箱
+    static func crateTexture() -> SKTexture {
+        cached("crate") {
+            if let t = assetTexture("deco_crate") { return t }
+            return crateSprite()
+        }
+    }
+
+    private static func crateSprite() -> SKTexture {
+        let size = CGSize(width: 18, height: 16)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            cg.setFillColor(UIColor(hex: "B8843C").cgColor)
+            cg.fill(CGRect(x: 2, y: 2, width: 14, height: 12))
+            cg.setFillColor(UIColor(hex: "7A5220").cgColor)
+            cg.stroke(CGRect(x: 2, y: 2, width: 14, height: 12))
+            // 板目（X 型補強）
+            cg.setStrokeColor(UIColor(hex: "7A5220").cgColor)
+            cg.setLineWidth(1)
+            cg.move(to: CGPoint(x: 2, y: 2)); cg.addLine(to: CGPoint(x: 16, y: 14)); cg.strokePath()
+            cg.move(to: CGPoint(x: 16, y: 2)); cg.addLine(to: CGPoint(x: 2, y: 14)); cg.strokePath()
+            // 外枠
+            cg.setStrokeColor(UIColor(hex: "5C3A18").cgColor)
+            cg.setLineWidth(1)
+            cg.stroke(CGRect(x: 2, y: 2, width: 14, height: 12))
+        }
+        let tex = SKTexture(image: img); tex.filteringMode = .nearest; return tex
+    }
+
+    /// 煙粒子テクスチャ（灰色のソフトな円、キャッシュ）
+    static func smokePuffTexture() -> SKTexture {
+        cached("smoke_puff") {
+            if let t = assetTexture("fx_smoke_puff") { return t }
+            let size = CGSize(width: 12, height: 12)
+            let img = UIGraphicsImageRenderer(size: size).image { ctx in
+                let cg = ctx.cgContext
+                cg.setFillColor(UIColor(white: 0.75, alpha: 0.75).cgColor)
+                cg.fillEllipse(in: CGRect(x: 1, y: 1, width: 10, height: 10))
+                cg.setFillColor(UIColor(white: 0.95, alpha: 0.6).cgColor)
+                cg.fillEllipse(in: CGRect(x: 3, y: 2, width: 5, height: 5))
+            }
+            let t = SKTexture(image: img); t.filteringMode = .linear; return t
+        }
     }
 
     // ────────────────────────────────────────────────────────────────

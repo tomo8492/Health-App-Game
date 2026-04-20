@@ -229,6 +229,71 @@ enum SpriteEffects {
 
     // MARK: - 雲スプライト（曇りの日に流す）
 
+    // MARK: - 煙突の煙エフェクト（建物に継続的に attach）
+
+    /// 建物ノードに煙突エミッターを取り付ける（毎秒 1.5 個の煙粒子を生成）
+    /// - Parameters:
+    ///   - building: 煙を出す親ノード（BuildingNode を想定）
+    ///   - offset: building の anchor 基準の相対位置（煙突位置）
+    ///   - tint: 煙の色味（nil でデフォルトのグレー）
+    /// 既に "smoke" key のアクションが動いていれば二重に追加しない。
+    static func attachSmoke(
+        to building: SKNode,
+        offset: CGPoint,
+        tint: UIColor? = nil
+    ) {
+        // 既存の煙エミッターがあればスキップ（二重 attach 防止）
+        if building.action(forKey: "smokeEmitter") != nil { return }
+
+        let emitter = SKNode()
+        emitter.position = offset
+        emitter.zPosition = 0.5  // 建物よりわずかに手前
+        emitter.name = "smokeEmitter"
+        building.addChild(emitter)
+
+        let tex = PixelArtRenderer.smokePuffTexture()
+        let spawn = SKAction.run { [weak emitter] in
+            guard let emitter else { return }
+            let puff = SKSpriteNode(texture: tex)
+            puff.size = CGSize(width: 6, height: 6)
+            if let tint {
+                puff.color = tint
+                puff.colorBlendFactor = 0.5
+            }
+            puff.position = CGPoint(
+                x: CGFloat.random(in: -1.5...1.5),
+                y: 0
+            )
+            puff.alpha = 0.75
+            puff.zPosition = 0.5
+            emitter.addChild(puff)
+            let duration: TimeInterval = 2.4
+            puff.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.move(by: CGVector(
+                        dx: CGFloat.random(in: -6...6),
+                        dy: 28 + CGFloat.random(in: 0...8)
+                    ), duration: duration),
+                    SKAction.scale(to: 2.6, duration: duration),
+                    SKAction.sequence([
+                        SKAction.wait(forDuration: duration * 0.35),
+                        SKAction.fadeOut(withDuration: duration * 0.65)
+                    ])
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
+        let wait = SKAction.wait(forDuration: 0.65, withRange: 0.3)
+        building.run(SKAction.repeatForever(SKAction.sequence([spawn, wait])),
+                     withKey: "smokeEmitter")
+    }
+
+    /// 建物の煙を停止する
+    static func detachSmoke(from building: SKNode) {
+        building.removeAction(forKey: "smokeEmitter")
+        building.childNode(withName: "smokeEmitter")?.removeFromParent()
+    }
+
     /// 横長の柔らかい雲（NSCache）
     static func cloudTexture(variant: Int = 0) -> SKTexture {
         let key = "cloud_\(variant)"

@@ -119,7 +119,8 @@ final class NPCNode: SKSpriteNode {
     // MARK: - ウォークフレーム更新
 
     private func advanceWalkFrame() {
-        walkFrame = (walkFrame + 1) % 4
+        // 8 フレーム化：アセットが 4 枚しか無い場合は PixelArtRenderer 側で 0-3 にフォールバック
+        walkFrame = (walkFrame + 1) % 8
         updateTexture(frame: walkFrame)
     }
 
